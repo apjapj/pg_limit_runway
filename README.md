@@ -47,8 +47,11 @@ In order. Steps 1 to 3 settle what the tool says; 4 onwards build it.
 ### 1. Wait for, or write, the shared contract
 
 Payload keys, `event` vocabulary, channel naming, version floor and naming conventions are decided
-once in [pg_incident_watch](https://github.com/apjapj/pg_incident_watch#next-steps). The recommended floor is
-PG 15.
+once in [pg_incident_watch](https://github.com/apjapj/pg_incident_watch#next-steps). The floor is
+**PostgreSQL 14 and later**. PostgreSQL 14 reaches upstream end of life on 2026-11-12, and the floor is revisited then. Features newer than 14 are
+per-feature checks with a stated degradation, never a floor: `reserved_connections` exists only on 16
+and later, so on 14 and 15 connection headroom counts `superuser_reserved_connections` alone and says
+so.
 
 ### 2. Decide how rate is measured, because the headline depends on it
 
