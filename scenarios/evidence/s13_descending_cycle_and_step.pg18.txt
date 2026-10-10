@@ -7,7 +7,7 @@ the usual check (pg_sequences: last_value against the floor)
 
 
 what pg_limit_runway says
- [failing now] sequence lr_scen.s13_step.id: lr_scen.s13_step.id (integer) is exhausted: the limit is 10, and the next value would be 9.
+ [failing now] sequence lr_scen.s13_step.id: lr_scen.s13_step.id (integer) is exhausted: the limit is 10, and the next call fails: 10 is the sequence's MINVALUE.
  [no rate yet] sequence lr_scen.s13_ring.id: 4 of 11 values left before it wraps to 20 (integer, descending). Then: it cycles instead of failing: after the wrap, inserts collide with any keys still held from the last pass.
  PASS finding for lr_scen.s13_ring.id: no rate yet (class 3), then %cycles instead of failing%
  PASS finding for lr_scen.s13_step.id: exhausted (class 1)

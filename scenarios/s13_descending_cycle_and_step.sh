@@ -25,7 +25,7 @@ SELECT sequencename, increment_by, min_value, max_value, cycle, last_value, last
 finding "$SCHEMA.s13_%"
 ring_said=$(val "SELECT substring(detail from '^([0-9]+) of') FROM limit_runway_findings(0) WHERE object = '$SCHEMA.s13_ring.id'" 2>/dev/null)
 assert_finding $SCHEMA.s13_ring.id 'no rate yet' '%cycles instead of failing%' '' '4 of 11 values left before it wraps to 20%' 3
-assert_finding $SCHEMA.s13_step.id exhausted '' '' '%limit is 10, and the next value would be 9' 1
+assert_finding $SCHEMA.s13_step.id exhausted '' '' '%limit is 10, and the next call fails: 10 is the sequence%MINVALUE%' 1
 
 say "what actually happens"
 serr=$(try_sql "INSERT INTO $SCHEMA.s13_step DEFAULT VALUES")

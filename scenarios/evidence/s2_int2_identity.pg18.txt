@@ -14,7 +14,7 @@ checks
  PASS the next insert fails at the sequence's maximum
 
 what pg_limit_runway says
- [failing now] sequence lr_scen.s2_events.id: lr_scen.s2_events.id (smallint) is exhausted: the limit is 32767, and the next value would be 32768.
+ [failing now] sequence lr_scen.s2_events.id: lr_scen.s2_events.id (smallint) is exhausted: the limit is 32767, and the next call fails: 32767 is the sequence's MAXVALUE.
  PASS finding for lr_scen.s2_events.id: exhausted (class 1)
 
 expected finding

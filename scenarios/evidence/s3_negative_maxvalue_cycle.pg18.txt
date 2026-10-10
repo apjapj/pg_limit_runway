@@ -8,7 +8,7 @@ the usual check (pg_sequences, last_value against max_value)
 
 
 what pg_limit_runway says
- [failing now] sequence lr_scen.s3_capped_t.id: lr_scen.s3_capped_t.id (bigint) is exhausted: the limit is 1000, and the next value would be 1001. Then: the limit is the sequence's MAXVALUE 1000, not the column's bigint.
+ [failing now] sequence lr_scen.s3_capped_t.id: lr_scen.s3_capped_t.id (bigint) is exhausted: the limit is 1000, and the next call fails: 1000 is the sequence's MAXVALUE. Then: the limit is the sequence's MAXVALUE 1000, not the column's bigint.
  [no rate yet] sequence lr_scen.s3_cyc_t.id: 0 of 100 values left before it wraps to 1 (integer, ascending). Then: it cycles instead of failing: after the wrap, inserts collide with any keys still held from the last pass.
  [no rate yet] sequence lr_scen.s3_desc: 3 of 2147483648 values left (sequence, descending).
  PASS finding for lr_scen.s3_desc: no rate yet (class 3)
@@ -30,9 +30,9 @@ checks
 after: the descending sequence has run out, and the cycling one has wrapped into its data
 
 what pg_limit_runway says
- [failing now] sequence lr_scen.s3_capped_t.id: lr_scen.s3_capped_t.id (bigint) is exhausted: the limit is 1000, and the next value would be 1001. Then: the limit is the sequence's MAXVALUE 1000, not the column's bigint.
+ [failing now] sequence lr_scen.s3_capped_t.id: lr_scen.s3_capped_t.id (bigint) is exhausted: the limit is 1000, and the next call fails: 1000 is the sequence's MAXVALUE. Then: the limit is the sequence's MAXVALUE 1000, not the column's bigint.
  [failing now] sequence lr_scen.s3_cyc_t.id: the sequence has wrapped into existing keys (sequence at 2, data at 100): the next default id, 3, is already taken, so the next insert fails. No setval fixes a cycling sequence: it would wrap back into the same keys. Free the old keys, or widen its range.
- [failing now] sequence lr_scen.s3_desc: lr_scen.s3_desc (sequence) is exhausted: the limit is -2147483648, and the next value would be -2147483649.
+ [failing now] sequence lr_scen.s3_desc: lr_scen.s3_desc (sequence) is exhausted: the limit is -2147483648, and the next call fails: -2147483648 is the sequence's MINVALUE.
  PASS finding for lr_scen.s3_desc: exhausted (class 1)
  PASS finding for lr_scen.s3_cyc_t.id: cycled into existing keys (class 1)
 

@@ -185,9 +185,24 @@ BEGIN
       -- No call left: the next nextval() fails, or hands out a value the column cannot hold (s1).
       rank_class := 1; used_fraction := NULL; state := 'exhausted';
       detail := format('%s (%s) is exhausted: the limit is %s%s', object, coalesce(r.coltype, 'sequence'), eff,
-                       CASE WHEN (r.inc > 0 AND cur > eff) OR (r.inc < 0 AND cur < eff)
-                            THEN format(', and the sequence stands past it at %s: failed inserts still consume values', cur)
-                            ELSE format(', and the next value would be %s', nv) END);
+                       CASE
+                         -- Past the limit, which only burned values can do: nextval consumed them, so the
+                         -- position is beyond eff and there is nothing left to hand out.
+                         WHEN (r.inc > 0 AND cur > eff) OR (r.inc < 0 AND cur < eff)
+                           THEN format(', and the sequence stands past it at %s: failed inserts still consume values', cur)
+                         -- At the limit, and the limit IS the sequence's own ceiling, so there is no next
+                         -- value at all: nextval() raises "reached maximum value" rather than returning one.
+                         -- Saying "the next value would be %s" names a number the server has already
+                         -- refused to produce, and an operator watching a pager sees the message and then
+                         -- sees the error, which is two pieces of software disagreeing (s14).
+                         WHEN eff = CASE WHEN r.inc > 0 THEN r.seqmax ELSE r.seqmin END
+                           THEN CASE WHEN r.inc > 0
+                                     THEN format(', and the next call fails: %s is the sequence''s MAXVALUE', eff)
+                                     ELSE format(', and the next call fails: %s is the sequence''s MINVALUE', eff) END
+                         -- At a limit narrower than the sequence, set by the column: the sequence does still
+                         -- have a next value, and it is the column that will reject it.
+                         ELSE format(', and the next value %s is past what %s can hold', nv, coalesce(r.coltype, 'the column'))
+                       END);
       rank_label := lbl[rank_class]; RETURN NEXT;
     ELSIF frac >= min_used THEN
       rank_class := 3; used_fraction := round(frac, 4); state := 'no rate yet';

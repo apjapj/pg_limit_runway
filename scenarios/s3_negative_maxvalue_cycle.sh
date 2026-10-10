@@ -45,7 +45,7 @@ assert_true "the cycling sequence wrapped to 1 instead of failing" "$([ "$cycv" 
 assert_true "and the insert collided with an existing key" "$([[ "$yerr" == *"duplicate key value"* ]] && echo t || echo f)"
 say "after: the descending sequence has run out, and the cycling one has wrapped into its data"
 finding "lr_scen.s3_%"
-assert_finding lr_scen.s3_desc exhausted '' '' '%limit is -2147483648, and the next value would be -2147483649' 1
+assert_finding lr_scen.s3_desc exhausted '' '' '%limit is -2147483648, and the next call fails: -2147483648 is the sequence%MINVALUE%' 1
 assert_finding lr_scen.s3_cyc_t.id 'cycled into existing keys' '' '' '%sequence at 2, data at 100%the next default id, 3, is already taken%No setval fixes a cycling sequence%' 1
 say "expected finding"
 note "a) s3_desc: 3 values left, measured downwards to min_value. b) s3_capped: 0 left, the limit is"
