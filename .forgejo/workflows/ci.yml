@@ -1,0 +1,186 @@
+# .forgejo/workflows/ci.yml: the Forgejo half of CI. GitHub runs .github/workflows/ci.yml; both
+# cover the same ground on the same two PostgreSQL versions, and both are expected green before a
+# release. They are separate files because they cannot be the same file: the two platforms have
+# different runners and no shared runner label.
+#
+# WHY THIS EXISTS. This repository previously had no Forgejo workflow, and its .github workflow was
+# the only CI. On Forgejo that workflow ran and failed on every single push: it asks for
+# `runs-on: ubuntu-latest`, which on this instance resolves to a self-hosted act_runner whose job
+# container has no /var/run/docker.sock, and ci/job.sh starts its server with `docker build` and
+# `docker run`. Every job that needed a server died on "failed to connect to the docker API" while
+# `lint`, which needs no server, passed. Five runs, five failures, unnoticed, because this repository
+# also had no scripts/check-ci.sh, so nothing ever read the Forgejo result.
+#
+# WHY babar-pg AND NOT A services: CONTAINER. The tempting fix is to copy pg_lock_tree's main
+# workflow, which takes PostgreSQL as a `services:` container and loads the release SQL directly.
+# That does not work here. scenarios/lib.sh:69 runs `CREATE EXTENSION IF NOT EXISTS`, and
+# scenarios/install-extension.sh puts the .control and .sql files into the server's filesystem with
+# `docker cp` and `docker exec`. A service container cannot be modified from the job container
+# without a Docker socket, which the job container does not have. The extension has to be installed
+# into the server that runs the tests, so the server has to be inside the job.
+#
+# The babar-pg labels run apjapj/pg-runner, which bakes a full PostgreSQL stack plus pgTAP,
+# postgresql-server-dev and make, and ships a `pg-start` helper. `make install` writes into that
+# server's own filesystem, CREATE EXTENSION finds it, and no Docker is involved at any point.
+#
+#   babar-pg     PostgreSQL 18   (pg-runner:18-YYYYMMDD)
+#   babar-pg14   PostgreSQL 14   (pg-runner:14-YYYYMMDD)
+#
+# Two jobs rather than a matrix, because the two versions need DIFFERENT RUNNER LABELS and a matrix
+# would have to interpolate `runs-on: ${{ matrix.pool }}`. That is not exercised anywhere else on
+# this instance, and an untested feature in the one workflow whose job is to be trustworthy is a
+# bad trade for saving twenty lines.
+#
+# The pool runs at capacity 1, so these two jobs queue and run in turn rather than in parallel.
+name: ci
+on:
+  push:
+  pull_request:
+
+# The libpq environment below is repeated in both scenario jobs on purpose. A YAML anchor would
+# avoid the duplication, but the only place to hang one is a key act may reject, and this file has to
+# work on a runner whose feature set is not fully known.
+#
+# PGUSER matters: the job runs as root, and there is no role called root, so without it every psql
+# fails. PGHOST and PGPORT point at TCP deliberately, because s9 tests password authentication and
+# needs a password to be checked at all. PGPORT also has to be set for a different reason: s9's
+# non-password half looks for the socket at "$unix_socket_directories/.s.PGSQL.$PGPORT", so an unset
+# PGPORT leaves it looking for ".s.PGSQL." and quietly skipping a test it should have run.
+jobs:
+  lint:
+    # The `docker` label, not babar-pg: this job needs no PostgreSQL at all. check-evidence.sh reads
+    # the committed evidence and the figures the docs cite, and `bash -n` parses every script.
+    runs-on: docker
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scenarios/check-evidence.sh
+      - run: for s in scenarios/*.sh ci/*.sh; do bash -n "$s" || exit 1; done
+
+  scenarios-14:
+    name: scenarios (14)
+    runs-on: babar-pg14
+    env:
+      PGUSER: postgres
+      PGDATABASE: postgres
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start Postgres and install the extension
+        run: |
+          set -euo pipefail
+          pg-start
+          make install
+          psql -qX -v ON_ERROR_STOP=1 -c "CREATE EXTENSION pg_limit_runway"
+          # Assert, do not print. A bare SELECT reports whatever is installed and is then
+          # discarded, so a partial or stale `make install` would pass unnoticed: the whole point of
+          # installing here is to test THIS working tree, not whatever the image happened to carry.
+          want=$(sed -n "s/^default_version *= *'\(.*\)'/\1/p" pg_limit_runway.control)
+          got=$(psql -X -tAc "SELECT extversion FROM pg_extension WHERE extname = 'pg_limit_runway'")
+          echo "control says ${want}, server loaded ${got}"
+          [ -n "$want" ] && [ "$got" = "$want" ] || {
+            echo "the loaded version is not this checkout" >&2; exit 1; }
+      - name: Require a password for the roles s9 tests
+        run: |
+          set -euo pipefail
+          # s9 asserts that a role whose password has expired is REFUSED a password login. Under
+          # trust auth no password is ever checked, so the login succeeds and the assertion fails.
+          # The pg-runner image trusts loopback on purpose, because pg_lock_tree's jobs connect with
+          # no password and a Docker config holds one credential per registry, so the image cannot
+          # be given a password without breaking them.
+          #
+          # So the job prepends ONE rule, for exactly the four roles s9 creates, all of which it
+          # creates with PASSWORD 'test'. Prepended, not appended: pg_hba is first match wins, so an
+          # appended rule would never be reached.
+          #
+          # This is not a weakening. ci/job.sh runs the suite against the official postgres image,
+          # where host auth is scram for every role, so s9's assertions are already exercised
+          # against a password there. Prepending the rule makes the Forgejo run test the same thing
+          # instead of quietly skipping it.
+          hba=$(psql -X -tAc "SHOW hba_file")
+          { echo "host all lr_scen_expired,lr_scen_soon,lr_scen_forever,lr_scen_none 127.0.0.1/32 scram-sha-256"
+            cat "$hba"; } > /tmp/hba.new
+          cat /tmp/hba.new > "$hba"
+          psql -qX -c "SELECT pg_reload_conf()"
+          # A malformed rule is silently ignored by the server, which would leave trust in place
+          # and turn the s9 failure into a mystery. pg_hba_file_rules reports per-line errors.
+          bad=$(psql -X -tAc "SELECT count(*) FROM pg_hba_file_rules WHERE error IS NOT NULL")
+          echo "pg_hba_file_rules with errors: ${bad}"
+          [ "$bad" = 0 ] || { echo "pg_hba.conf did not parse" >&2; exit 1; }
+      - name: pgTAP
+        run: pg_prove --dbname postgres test/*.sql
+      - name: Scenarios
+        run: |
+          set -uo pipefail
+          out=$(./scenarios/run.sh); rc=$?
+          printf '%s\n' "$out"
+          # run.sh marks a scenario FAILED either by exit status or by printing FAILED, and it
+          # prints a FAIL line for each failed assertion. Checking the word covers both, because
+          # run.sh prints FAILED whenever an assertion failed.
+          printf '%s\n' "$out" | grep -q 'FAILED' && exit 1
+          exit $rc
+      - name: Evidence
+        run: |
+          set -uo pipefail
+          if git diff --quiet -- "scenarios/evidence/*.pg14.txt"; then
+            echo "  evidence identical"
+          else
+            git diff -- "scenarios/evidence/*.pg14.txt"
+            echo "EVIDENCE DIFFERS"; exit 1
+          fi
+
+  scenarios-18:
+    name: scenarios (18)
+    runs-on: babar-pg
+    env:
+      PGUSER: postgres
+      PGDATABASE: postgres
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start Postgres and install the extension
+        run: |
+          set -euo pipefail
+          pg-start
+          make install
+          psql -qX -v ON_ERROR_STOP=1 -c "CREATE EXTENSION pg_limit_runway"
+          want=$(sed -n "s/^default_version *= *'\(.*\)'/\1/p" pg_limit_runway.control)
+          got=$(psql -X -tAc "SELECT extversion FROM pg_extension WHERE extname = 'pg_limit_runway'")
+          echo "control says ${want}, server loaded ${got}"
+          [ -n "$want" ] && [ "$got" = "$want" ] || {
+            echo "the loaded version is not this checkout" >&2; exit 1; }
+      - name: Require a password for the roles s9 tests
+        run: |
+          set -euo pipefail
+          # Identical to the PG 14 job above, and for the same reason: s9 asserts that an expired
+          # password is refused, and trust auth never checks a password. See that job for the full
+          # reasoning. Duplicated rather than factored into a composite action or a called script,
+          # because neither has been shown to work on this instance and the alternative is a CI
+          # file that is shorter and less trustworthy.
+          hba=$(psql -X -tAc "SHOW hba_file")
+          { echo "host all lr_scen_expired,lr_scen_soon,lr_scen_forever,lr_scen_none 127.0.0.1/32 scram-sha-256"
+            cat "$hba"; } > /tmp/hba.new
+          cat /tmp/hba.new > "$hba"
+          psql -qX -c "SELECT pg_reload_conf()"
+          bad=$(psql -X -tAc "SELECT count(*) FROM pg_hba_file_rules WHERE error IS NOT NULL")
+          echo "pg_hba_file_rules with errors: ${bad}"
+          [ "$bad" = 0 ] || { echo "pg_hba.conf did not parse" >&2; exit 1; }
+      - name: pgTAP
+        run: pg_prove --dbname postgres test/*.sql
+      - name: Scenarios
+        run: |
+          set -uo pipefail
+          out=$(./scenarios/run.sh); rc=$?
+          printf '%s\n' "$out"
+          printf '%s\n' "$out" | grep -q 'FAILED' && exit 1
+          exit $rc
+      - name: Evidence
+        run: |
+          set -uo pipefail
+          if git diff --quiet -- "scenarios/evidence/*.pg18.txt"; then
+            echo "  evidence identical"
+          else
+            git diff -- "scenarios/evidence/*.pg18.txt"
+            echo "EVIDENCE DIFFERS"; exit 1
+          fi
