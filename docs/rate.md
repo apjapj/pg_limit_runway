@@ -30,6 +30,19 @@ descending sequence. Two things the scenarios showed that change how the rate is
   and the insert collided. A cycling sequence is projected to its wrap, and the finding is "will collide",
   not "will run out".
 
+**State first, then a rate.** Before any projection, a sequence is checked against its data: if
+`last_value` is behind `max(id)` (s12, rows loaded with explicit ids and the sequence never advanced),
+the sequence is *behind the data* and the next default id collides now. That is reported as a state, with
+the fix named (`setval` to `max(id)`, which the tool will not run, being read-only), and no projection: a
+subtraction there goes negative and the usual percentage exceeds 100, and neither is a number the tool may
+print. `max(id)` is read through the column's index (s12's plan used it), and a column with no index is
+listed as not watched rather than scanned. Otherwise the projection proceeds from `last_value`.
+
+**The rate counts attempts, which the tool cannot see.** Every insert that fails after `nextval()` still
+consumes a value (s1), so a sequence advances faster than rows arrive by an amount no catalog records. The
+projected date therefore carries an error band the tool cannot narrow, and the finding says the date is
+"at the current rate of consumption, including failed inserts" rather than presenting it as exact.
+
 **Foreign keys narrower than their parent** (s4). The rate is the *parent's* sequence; the limit is the
 child column's type. s4's parent was at [2147483648](../scenarios/evidence/s4_widened_parent_fk.pg18.txt) with the usual
 check under 0.001%, and the child could no longer reference it.

@@ -29,9 +29,10 @@ images, started with `postgres -c autovacuum_naptime=10s -c log_autovacuum_min_d
 | `s8_slot_wal_keep` | unset: `reserved`, `safe_wal_size` NULL; set to 32MB: `unreserved`, then `lost` | no |
 | `s9_valid_until` | expired refuses password logins, [3](evidence/s9_valid_until.pg18.txt) days, `infinity` and NULL all log in | **yes**: the expired role still logs in over a trusted socket |
 | `s10_connection_headroom` | role at [2](evidence/s10_connection_headroom.pg18.txt) of 2 and database at 1 of 1 while the usual check shows plenty | **yes**: superusers are exempt from both limits |
+| `s12_sequence_behind_data` | explicit ids loaded, sequence never advanced: the usual check exceeds 100% and the next default id collides | **yes**, found by Piotr: the sequence is *behind* the data, a state to report with its fix, not a projection |
 | `s11_two_limits` | a partition already failing beside an int2 identity with [6](evidence/s11_two_limits.pg18.txt) left | the ordering case for [docs/ranking.md](../docs/ranking.md) |
 
 **PostgreSQL 14 and 18 agree on every scenario except s10**, where `reserved_connections` exists on 18
 only and 14 says so. **Reproducible**: two consecutive runs on each version gave byte-identical evidence
-for all 22 files with no masking at all, because the scenarios print facts and booleans rather than ids,
+for all 24 files with no masking at all, because the scenarios print facts and booleans rather than ids,
 pids or timestamps; `mask.sh` keeps pg_bloat_cause's convention for when one is needed.

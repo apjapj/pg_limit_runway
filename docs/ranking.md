@@ -13,7 +13,7 @@ the scenario evidence; `scenarios/check-evidence.sh` checks them.
 ## The order
 
 1. **Reached, failing now.** Inserts are being refused today: s1's column, s2's identity, s4's foreign key,
-   s7's missing partition, s3's cycling sequence colliding. These outrank everything, however close
+   s7's missing partition, s3's cycling sequence colliding, s12's sequence behind its data. These outrank everything, however close
    anything else is.
 2. **A date**, soonest first: projected from a rate (sequences, XIDs, MultiXacts, slots with
    `max_slot_wal_keep_size`), or fixed (password expiry, the last partition's bound). One timeline: a
