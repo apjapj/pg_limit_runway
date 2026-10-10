@@ -54,7 +54,7 @@ What each one is for, and what the role gets without it:
 |---|---|---|
 | `SELECT ON limit_runway` and `EXECUTE` on both functions | PostgreSQL checks a function called inside a view against the role *using* the view, so `SELECT` alone still fails on `limit_runway_findings()` | refused: `permission denied` |
 | `pg_read_all_stats` | to see which sessions are client connections, and whose. Measured on 14 and 18: without it a role sees other sessions with their type, user and database hidden, and would count 0 connections of N | one row, connections "not established", and no counts |
-| `SELECT` on sequences | a sequence's position (`pg_sequences.last_value`) is NULL to a role without it | one row naming the sequences it cannot read, "not established" |
+| `SELECT` on sequences | reading a sequence's position (its `last_value` and `is_called`) needs it | one row naming the sequences it cannot read, "not established" |
 | `SELECT` on tables, and `USAGE` on their schema | whether a sequence is behind its data is read from the column's index, and whether a DEFAULT partition holds rows from the partition: both are reads of the table | one row naming those columns, and a note on the partition, "not established" |
 | superuser, or `EXECUTE ON FUNCTION pg_ls_dir(text)` | to count MultiXact member segment files | member space "not established". With it, still "not established" in 0.1, which counts the files but does not compute the limit, so the grant is not worth making for 0.1 |
 
@@ -74,11 +74,12 @@ Nothing else is needed. `pg_class`, `pg_sequence`, `pg_partitioned_table`, `pg_d
 
 - **Never writes.** No function is VOLATILE. It names fixes (`SELECT setval(...)` for a sequence behind
   its data) as text to run by hand, and never runs them.
-- **Never waits.** The functions run with `lock_timeout = 1s`; a table it cannot lock in time becomes
+- **Never waits.** The functions run with `lock_timeout = 1s`; a table or sequence it cannot lock in time becomes
   "not established" rather than a stalled monitor.
-- **Never scans a table.** The one read of table data per sequence is the last entry of an index whose
-  leading column is the sequence's column (`ORDER BY col DESC LIMIT 1`). With no such index, behind-the-data
-  is "not established". The DEFAULT partition check stops at the first row.
+- **Never scans a table.** The reads of table data per sequence are the end entry of an index whose
+  leading column is the sequence's column (`ORDER BY col DESC LIMIT 1`, or `ASC` for a descending
+  sequence) and one lookup of the next value in that index. With no such index, behind-the-data is "not
+  established". The DEFAULT partition check stops at the first row.
 - **No history in 0.1**, so no rate and no projected dates: "no rate yet" is a state, ordered by the share
   of the limit used. The only dates are fixed ones: a password's expiry and a partition's last bound.
 

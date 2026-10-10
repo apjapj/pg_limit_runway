@@ -1,0 +1,34 @@
+
+the usual check (pg_sequences: last_value against the floor)
+ sequencename | increment_by | min_value | max_value | cycle | last_value | distance_to_floor
+ s13_ring_seq | -1 | 10 | 20 | t | 14 | 4
+ s13_step_seq | -3 | 10 | 21 | f | 12 | 2
+(2 rows)
+
+
+what pg_limit_runway says
+ [failing now] sequence lr_scen.s13_step.id: lr_scen.s13_step.id (integer) is exhausted: the limit is 10, and the next value would be 9.
+ [no rate yet] sequence lr_scen.s13_ring.id: 4 of 11 values left before it wraps to 20 (integer, descending). Then: it cycles instead of failing: after the wrap, inserts collide with any keys still held from the last pass.
+ PASS finding for lr_scen.s13_ring.id: no rate yet (class 3), then %cycles instead of failing%
+ PASS finding for lr_scen.s13_step.id: exhausted (class 1)
+
+what actually happens
+ s13_step, 2 above its floor: ERROR: nextval: reached minimum value of sequence "s13_step_seq" (10)
+ s13_ring: 4 inserts succeeded, then the sequence wrapped to 20 and the insert collided
+
+checks
+ PASS s13_step fails with 2 values between it and its floor, because its step is 3
+ PASS s13_ring took 4 more inserts before the wrap: 13 down to 10
+ PASS the count pg_limit_runway gave before, 4, is the number of inserts that succeeded
+
+after the wrap
+
+what pg_limit_runway says
+ [failing now] sequence lr_scen.s13_ring.id: the sequence has wrapped into existing keys (sequence at 20, data at 10): the next default id, 19, is already taken, so the next insert fails. No setval fixes a cycling sequence: it would wrap back into the same keys. Free the old keys, or widen its range.
+ PASS finding for lr_scen.s13_ring.id: cycled into existing keys (class 1)
+ PASS after the wrap, s13_ring is given no count and no share used
+
+expected finding
+ s13_ring: before the wrap, 4 values left before it wraps to 20, the same number of inserts that then
+ succeeded; after it, cycled into existing keys, with no count. s13_step: exhausted at 12, 2 above its
+ floor, because the count is of calls of nextval() in steps of 3, not of values between it and the floor.

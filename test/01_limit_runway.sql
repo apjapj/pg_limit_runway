@@ -14,7 +14,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
 CREATE EXTENSION IF NOT EXISTS pg_limit_runway;
 \o
-SELECT plan(33);
+SELECT plan(35);
 
 SELECT has_view('limit_runway', 'the limit_runway view exists');
 SELECT has_function('limit_runway_findings', ARRAY['numeric', 'interval'], 'limit_runway_findings(numeric, interval) exists');
@@ -102,6 +102,53 @@ SELECT is((SELECT count(*)::int FROM f WHERE detail ~ '(^|[^0-9])-[0-9]+ (of|val
 SELECT is((SELECT count(*)::int FROM f WHERE until_date IS NOT NULL AND kind = 'sequence'), 0,
           'no sequence has a date: 0.1 has no history, so no rate');
 
+-- The count against the truth, for every shape: increments 1, -1, 3 and -3, cycling or not, at the end,
+-- one step before it, mid-way and never called (32 sequences). The count the view gives is compared with
+-- the number of nextval() calls that actually succeed before the sequence fails or wraps. Piotr's review
+-- of 0.1 asked whether a descending CYCLE sequence was miscounted; this table found that it was not, and
+-- that any increment other than 1 was, in both directions.
+\o /dev/null
+CREATE SCHEMA lr_tt;
+CREATE FUNCTION lr_tt.calls(seq regclass, inc int) RETURNS int LANGUAGE plpgsql AS $$
+DECLARE prev bigint; v bigint; n int := 0;
+BEGIN
+  SELECT last_value INTO prev FROM pg_sequences WHERE format('%I.%I', schemaname, sequencename)::regclass = seq;
+  LOOP
+    BEGIN v := nextval(seq); EXCEPTION WHEN sequence_generator_limit_exceeded THEN RETURN n; END;
+    IF prev IS NOT NULL AND ((inc > 0 AND v < prev) OR (inc < 0 AND v > prev)) THEN RETURN n; END IF;
+    n := n + 1; prev := v;
+  END LOOP;
+END $$;
+CREATE TABLE lr_tt.truth (seq text, said int, exhausted boolean, calls int);
+DO $$
+DECLARE i int := 0; c record; p text; s text;
+BEGIN
+  FOR c IN SELECT * FROM (VALUES (1, true), (-1, true), (3, true), (-3, true), (1, false), (-1, false), (3, false), (-3, false)) v(inc, cyc) LOOP
+    FOREACH p IN ARRAY ARRAY['end', 'before end', 'mid', 'never'] LOOP
+      i := i + 1; s := 'lr_tt.s' || i;
+      EXECUTE format('CREATE SEQUENCE %s AS int INCREMENT %s MINVALUE 10 MAXVALUE 20 START %s %s', s, c.inc,
+                     CASE WHEN c.inc > 0 THEN 10 ELSE 20 END, CASE WHEN c.cyc THEN 'CYCLE' ELSE 'NO CYCLE' END);
+      IF p = 'end' THEN PERFORM setval(s, CASE WHEN c.inc > 0 THEN 20 ELSE 10 END);
+      ELSIF p = 'before end' THEN PERFORM setval(s, CASE WHEN c.inc > 0 THEN 20 - abs(c.inc) ELSE 10 + abs(c.inc) END);
+      ELSIF p = 'mid' THEN PERFORM setval(s, CASE WHEN c.inc > 0 THEN 18 ELSE 12 END);
+      END IF;
+      INSERT INTO lr_tt.truth
+        SELECT s, substring(f.detail from '^([0-9]+) of')::int, f.state = 'exhausted', NULL
+          FROM limit_runway_findings(0) f WHERE f.object = s;
+      UPDATE lr_tt.truth SET calls = lr_tt.calls(s::regclass, c.inc) WHERE seq = s;
+    END LOOP;
+  END LOOP;
+END $$;
+\o
+SELECT is((SELECT count(*)::int FROM lr_tt.truth), 32, 'every one of the 32 sequences has a row at min_used 0');
+SELECT is((SELECT count(*)::int FROM lr_tt.truth
+            WHERE NOT ((exhausted AND calls = 0) OR (NOT exhausted AND said = calls))), 0,
+          'for every shape, the count is the nextval() calls that succeed before it fails or wraps, and exhausted means none');
+
+\o /dev/null
+DROP SCHEMA lr_tt CASCADE;
+\o
+
 -- ---------------------------------------------------------------- the secondary lines
 SELECT ok((SELECT "then"[1] FROM f WHERE object = 'lr_test.events') LIKE '%DEFAULT lr_test.events_default holds rows%cannot be created until they are moved',
           'a reached partition with rows in its DEFAULT says the DEFAULT blocks the fix');
@@ -133,9 +180,9 @@ SELECT ok((SELECT unknowns[1] FROM fm WHERE object = 'member space') LIKE '%need
 SELECT ok((SELECT detail FROM fm WHERE kind = 'sequence' AND object LIKE '% column(s) this role cannot read')
            LIKE '%lr_test.behind.id%',
           'a table it cannot read is listed as not established, not passed over as fine');
-SELECT ok((SELECT detail FROM fm WHERE object LIKE '% sequence(s) this role cannot read')
-           LIKE '%lr_test.past_seq%',
-          'sequences it cannot read are one not-established row naming them, not one row each');
+SELECT ok((SELECT count(*) = 1 AND min(split_part(object, ' ', 1)::int) >= 3 FROM fm
+            WHERE object LIKE '% sequence(s) this role cannot read'),
+          'sequences it cannot read, at least the three made here, are one not-established row, not one row each');
 RESET ROLE;
 SELECT is((SELECT unknowns FROM f WHERE object = 'member space') IS NOT NULL
            AND (SELECT detail FROM f WHERE object = 'member space') LIKE '%member segment file(s)%', true,

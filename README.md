@@ -3,8 +3,9 @@
 **What will break next.** Every hard limit in the database, and the date each one is reached.
 
 Part of [pg_incident_watch](https://github.com/apjapj/pg_incident_watch). Pure SQL, `CREATE EXTENSION pg_limit_runway`, no
-restart, no `shared_preload_libraries`. Status on 2026-10-08: design only, nothing built. Source:
-`pg_incident_watch-overview.md.pdf`, Draft v0.1.
+restart, no `shared_preload_libraries`. Status on 2026-10-10: **0.1 built**, current state only (no
+history, so no dates yet), tested on PostgreSQL 14 and 18; not tagged. Install and grants:
+[INSTALL.md](INSTALL.md). Source: `pg_incident_watch-overview.md.pdf`, Draft v0.1.
 
 ## Overview
 
@@ -16,7 +17,7 @@ limit and reports when each will be reached, soonest first.
 
 | Limit | What "runs out" means | Where the evidence is |
 |---|---|---|
-| **`int4` / `int2` sequences and identity columns** | `nextval()` fails, or the value no longer fits the column | `pg_sequences`, `pg_attribute`, `pg_depend` (to tie a sequence to its column) |
+| **`int4` / `int2` sequences and identity columns** | `nextval()` fails, or the value no longer fits the column | `pg_sequence`, the sequence's own `last_value`/`is_called`, `pg_attribute`, `pg_depend` (to tie a sequence to its column) |
 | **`int4` foreign keys pointing at widened keys** | The parent is `bigint`, the child column is still `int4`, and inserts fail once the parent passes 2^31 | `pg_constraint` (`conkey`, `confkey`) joined to both columns' types |
 | **Transaction ID wraparound** | The server refuses new XIDs | `age(datfrozenxid)`, `age(relfrozenxid)` per table |
 | **MultiXact wraparound** | The same, for MultiXact IDs, and also MultiXact member space | `mxid_age(datminmxid)`, `mxid_age(relminmxid)` |
@@ -92,7 +93,9 @@ As pg_lock_tree did with `scenarios/`: build each case for real. The traps worth
 Built as eleven scenarios, run on PostgreSQL 14 and 18; six of them showed behaviour this list did not
 expect (failed inserts consume sequence values, a forced vacuum need not lower the age, MultiXacts are per
 locker set, a DEFAULT partition blocks the fix, expired passwords still allow non-password logins,
-superusers bypass connection limits). How rate is measured and how limits are ordered are now decided in
+superusers bypass connection limits). Two more came later: s12, a sequence behind its data (found by
+Piotr), and s13, a descending cycling sequence and a descending one stepping by 3 (from Piotr's review
+of 0.1), thirteen in all. How rate is measured and how limits are ordered are now decided in
 [docs/rate.md](docs/rate.md) and [docs/ranking.md](docs/ranking.md), before any SQL.
 
 ### 4. ~~The first version: current state only~~ **Done: 0.1, [INSTALL.md](INSTALL.md)**
@@ -105,13 +108,21 @@ Built as `limit_runway_findings(min_used, date_window)` behind both, in the thre
 which asserts the extension's finding against its fixture, on 14 and 18. What building it changed:
 
 - The serial finding is a state first: **exhausted** (never a negative count or more than 100%),
-  **behind the data** (with the `setval` to run by hand), **cycled into existing keys**, and only
-  otherwise a count of values left. Behind-the-data is read through an index whose leading column is the
-  column, one leaf page; with no such index it is "not established", and the table is never scanned.
+  **behind the data** (with the `setval` to run by hand), **cycled into existing keys** (no `setval`
+  fixes that, and the finding says so), and only otherwise a count of values left. Behind-the-data is
+  read through an index whose leading column is the column, at the end the sequence is heading for; with
+  no such index it is "not established", and the table is never scanned.
+- The count is of `nextval()` calls, in steps of the increment, from the next value. Counting values
+  between the position and the limit was right only for an increment of 1; a truth table of 32 shapes,
+  measured by calling `nextval()`, is now a pgTAP test. A cycling sequence keeps its count before the
+  wrap ("before it wraps to X"), because the measurement showed it true; [docs/rate.md](docs/rate.md) has
+  the decision.
 - Connection counts need `pg_read_all_stats`, as step 7 said: measured on 14 and 18, a role without it
   sees other sessions with their type, user and database hidden and would count 0 of N. Such a role gets
   "not established", not a low count.
 - Sequences no column owns are watched against their own limits (s3's descending sequence).
+- Not in 0.1: MultiXact age per table (`relminmxid`; per database only), and the member-space limit,
+  which is "not established" for every role.
 
 ### 5. Add history and dates
 
@@ -128,7 +139,7 @@ reverse.
 
 ### 7. Docs, grants and the matrix
 
-`INSTALL.md` with the exact grants. Most of this reads catalogs any role can see, but
+`INSTALL.md` with the exact grants (written with 0.1; revisit as 5 and 6 add objects). Most of this reads catalogs any role can see, but
 `pg_stat_activity` for connection counts needs `pg_read_all_stats`, and some control functions are
 superuser-only by default; list exactly which are needed and what is reported without them. Run on
 the shared matrix.

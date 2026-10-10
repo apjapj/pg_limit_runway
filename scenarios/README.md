@@ -6,8 +6,8 @@ would read. A `PASS`/`FAIL` line asserts each claim; `run.sh` reports a scenario
 They exist so that every claim in [docs/rate.md](../docs/rate.md) and [docs/ranking.md](../docs/ranking.md)
 can be checked against a run. When `pg_limit_runway` is installed on the server, each scenario also
 prints what the extension says about its objects and asserts the finding [docs/ranking.md](../docs/ranking.md)
-predicts (`PASS  finding for ...`): state, class, `then` lines and `unknowns`. s3 checks twice, before
-and after its sequences run out; s6 checks as superuser and as a `pg_monitor` role; s8 in both halves.
+predicts (`PASS  finding for ...`): state, class, `then` lines and `unknowns`. s3 and s13 check twice, before
+and after their sequences run out or wrap; s6 checks as superuser and as a `pg_monitor` role; s8 in both halves.
 `scenarios/install-extension.sh <container>` copies it in, md5-verified.
 
 ```bash
@@ -35,10 +35,11 @@ images, started with `postgres -c autovacuum_naptime=10s -c log_autovacuum_min_d
 | `s10_connection_headroom` | role at [2](evidence/s10_connection_headroom.pg18.txt) of 2 and database at 1 of 1 while the usual check shows plenty | **yes**: superusers are exempt from both limits |
 | `s12_sequence_behind_data` | explicit ids loaded, sequence never advanced: the usual check exceeds 100% and the next default id collides | **yes**, found by Piotr: the sequence is *behind* the data, a state to report with its fix, not a projection |
 | `s11_two_limits` | a partition already failing beside an int2 identity with [6](evidence/s11_two_limits.pg18.txt) left | the ordering case for [docs/ranking.md](../docs/ranking.md) |
+| `s13_descending_cycle_and_step` | a descending CYCLE sequence counted [4](evidence/s13_descending_cycle_and_step.pg18.txt) values before the wrap, and 4 inserts then succeeded; a descending sequence by 3 at [2](evidence/s13_descending_cycle_and_step.pg18.txt) above its floor fails on its next call | **yes**, from Piotr's review of 0.1: the count was right for the cycling case and wrong for any step other than 1, which 0.1 now counts in calls |
 
 **PostgreSQL 14 and 18 agree on every scenario except s10**, where `reserved_connections` exists on 18
 only and 14 says so. **Reproducible**: two consecutive runs on each version gave byte-identical evidence
-for all 24 files with no masking at all, because the scenarios print facts and booleans rather than ids,
+for all 24 files (now 26, with s13) with no masking at all, because the scenarios print facts and booleans rather than ids,
 pids or timestamps. The extension's findings added one: s9's password expiry is set from `now()`, so
 `mask.sh` replaces a run-time timestamp (one with fractional seconds) with `<run-time timestamp>`; s5
 prints only its PASS lines, since its xid ages vary between runs.

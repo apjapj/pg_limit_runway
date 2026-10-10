@@ -16,8 +16,9 @@ of two, the finding says so instead of picking one.
 
 ## Per limit: what is sampled, and what the scenarios found
 
-**Sequences and identity columns** (s1 to s4). Sampled: `last_value`, from `pg_sequences`. Rate: values
-per day. The limit is the *column's* type, reached through `pg_depend`, not the sequence's (s1: a bigint
+**Sequences and identity columns** (s1 to s4, s12, s13). Sampled: `last_value` and `is_called`, read
+from the sequence itself, since `pg_sequences` hides the position until the first call and so misses
+`setval(..., false)`. Rate: calls of `nextval()` per day. The limit is the *column's* type, reached through `pg_depend`, not the sequence's (s1: a bigint
 sequence feeding an int4 column, at [0.000000](../scenarios/evidence/s1_serial_bigint_seq.pg18.txt)% by the usual check
 and already failing), or the sequence's own `MAXVALUE` where that is lower
 (s3: [1000](../scenarios/evidence/s3_negative_maxvalue_cycle.pg18.txt) on a bigint column), or `min_value` for a
@@ -28,15 +29,36 @@ descending sequence. Two things the scenarios showed that change how the rate is
   rows, and a sequence past its column's maximum is reported **exhausted**, never as a negative count;
 - **CYCLE has no exhaustion date** (s3): `nextval()` wrapped to [1](../scenarios/evidence/s3_negative_maxvalue_cycle.pg18.txt)
   and the insert collided. A cycling sequence is projected to its wrap, and the finding is "will collide",
-  not "will run out".
+  not "will run out";
+- **"values left" counts calls, in steps of the increment**, from the value the next call hands out. An
+  earlier 0.1 counted the values between the position and the limit, which is right only for an increment
+  of 1: s13's descending sequence by 3 stood [2](../scenarios/evidence/s13_descending_cycle_and_step.pg18.txt) above its
+  floor and its next call failed. A truth table of 32 shapes (increments 1, -1, 3, -3, cycling or not, at
+  the end, one step before it, mid-way, never called), measured by calling `nextval()` on 14 and 18, is now
+  a pgTAP test: the count equals the calls that succeed, and "exhausted" means none do.
 
-**State first, then a rate.** Before any projection, a sequence is checked against its data: if
-`last_value` is behind `max(id)` (s12, rows loaded with explicit ids and the sequence never advanced),
-the sequence is *behind the data* and the next default id collides now. That is reported as a state, with
-the fix named (`setval` to `max(id)`, which the tool will not run, being read-only), and no projection: a
-subtraction there goes negative and the usual percentage exceeds 100, and neither is a number the tool may
-print. `max(id)` is read through the column's index (s12's plan used it), and a column with no index is
-listed as not watched rather than scanned. Otherwise the projection proceeds from `last_value`.
+**State first, then a rate.** Before any projection, a sequence is checked against its data: if keys
+already exist where the sequence is heading (`max(id)` at or past the next value for an ascending
+sequence, `min(id)` for a descending one), the sequence is *behind the data* (s12, rows loaded with
+explicit ids and the sequence never advanced) or, for a cycling sequence, has *cycled into existing keys*
+(s3, s13). That is reported as a state with no count and no projection: a subtraction there goes negative
+and the usual percentage exceeds 100, and neither is a number the tool may print. One more index lookup
+says whether the very next default id is taken, so the finding says "the next insert fails" only when it
+does. The fix is named for a sequence that does not cycle (`setval` to the end of the data, which the tool
+will not run, being read-only); for a cycling one no `setval` is a fix, since it would wrap straight back
+into the same keys, and the finding says so. The end of the data is read through an index whose leading
+column is the column (s12's plan used it); a column with no such index is "not established", never
+scanned. Otherwise the count, and later the projection, proceed from the position.
+
+**Before the wrap, a cycling sequence keeps its count.** Piotr's review of 0.1 asked whether a descending
+CYCLE sequence's count was the distance past its floor rather than the values remaining, and proposed
+giving no cycling sequence a count at all. Measured: s13's descending cycling sequence was given
+[4](../scenarios/evidence/s13_descending_cycle_and_step.pg18.txt) values left before the wrap, and exactly that many inserts
+then succeeded; every cycling shape in the truth table agreed once the count was in steps. So the count is
+true and is kept, phrased "N of M values left before it wraps to X", with the `then:` line that inserts
+after the wrap collide with any keys still held. After the wrap there is no count: the state is "cycled into
+existing keys". A cycling sequence whose column is narrower than its range fails at the column's limit
+before it wraps, and is counted as one that does not cycle.
 
 **The rate counts attempts, which the tool cannot see.** Every insert that fails after `nextval()` still
 consumes a value (s1), so a sequence advances faster than rows arrive by an amount no catalog records. The
@@ -77,4 +99,6 @@ reported as retained WAL growing, not as a date.
 - **Connections** (s10): a peak against a limit, per server, per role and per database, not a slope.
   s10's role had [2](../scenarios/evidence/s10_connection_headroom.pg18.txt) of 2 in use while the server had
   [97](../scenarios/evidence/s10_connection_headroom.pg18.txt) slots for ordinary roles. Reported as the highest use over the
-  window.
+  window once there is history; 0.1 has none, so it reports the current count, labelled "current, not a
+  peak". Counting needs `pg_read_all_stats`; without it a role's counts would read low, so they are "not
+  established" instead (INSTALL.md).

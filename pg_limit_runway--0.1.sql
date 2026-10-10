@@ -50,6 +50,14 @@ DECLARE
   cur        numeric;
   data_at    numeric;
   frac       numeric;
+  lv         numeric;
+  called     boolean;
+  nv         numeric;
+  step       numeric;
+  nleft      numeric;
+  total      numeric;
+  wraps      boolean;
+  taken      boolean;
   th         text[];
   un         text[];
   lbl        text[] := ARRAY['failing now', 'date', 'no rate yet', 'peak', 'not established'];
@@ -81,6 +89,7 @@ BEGIN
       LEFT JOIN pg_sequences ps ON ps.schemaname = sn.nspname AND ps.sequencename = s.relname
      WHERE s.relkind = 'S' AND sn.nspname NOT IN ('pg_catalog', 'information_schema')
        AND NOT pg_is_other_temp_schema(sn.oid)
+     ORDER BY sn.nspname, s.relname   -- so the names listed in a not-established row are the same each call
   LOOP
     th := '{}'; un := '{}';
     colmax := CASE r.atttypid WHEN 'int2'::regtype THEN 32767 WHEN 'int4'::regtype THEN 2147483647
@@ -95,31 +104,54 @@ BEGIN
       noseq := noseq || format('%I.%I', r.seq_schema, r.seq_name);   -- reported once below
       CONTINUE;
     END IF;
-    -- Never called: nothing used yet, the position is one step before the start.
-    cur := coalesce(r.last_value, r.seqstart - r.inc);
+    -- Counted in calls of nextval(), from the value the next call hands out, in steps of the increment.
+    -- Measured against real sequences on 14 and 18 (increments 1, -1, 3, -3, cycling or not, at the end,
+    -- one step before it, mid-way and never called): an earlier version counted values between the
+    -- position and the limit, which is right only for increments of 1 and called a sequence at 18 of 20
+    -- with increment 3 "2 left" when its next call fails. The position is read from the sequence itself,
+    -- because pg_sequences hides it until the first call and so misses setval(..., false).
+    BEGIN
+      EXECUTE format('SELECT last_value, is_called FROM %I.%I', r.seq_schema, r.seq_name) INTO lv, called;
+    EXCEPTION WHEN lock_not_available THEN
+      noseq := noseq || format('%I.%I (locked)', r.seq_schema, r.seq_name);
+      CONTINUE;
+    END;
+    nv := CASE WHEN called THEN lv + r.inc ELSE lv END;
+    cur := nv - r.inc;
+    step := abs(r.inc);
     IF r.inc > 0 THEN
       eff := least(r.seqmax, coalesce(colmax, r.seqmax));
-      frac := (cur - r.seqmin) / nullif(eff - r.seqmin, 0);
+      nleft := CASE WHEN nv > eff THEN 0 ELSE floor((eff - nv) / step) + 1 END;
+      total := floor((eff - r.seqmin) / step) + 1;
+      wraps := r.seqcycle AND eff = r.seqmax;   -- a column narrower than the sequence fails before the wrap
     ELSE
       eff := greatest(r.seqmin, coalesce(colmin, r.seqmin));
-      frac := (r.seqmax - cur) / nullif(r.seqmax - eff, 0);
+      nleft := CASE WHEN nv < eff THEN 0 ELSE floor((nv - eff) / step) + 1 END;
+      total := floor((r.seqmax - eff) / step) + 1;
+      wraps := r.seqcycle AND eff = r.seqmin;
     END IF;
+    frac := 1 - least(nleft, total) / total;
     IF eff < coalesce(colmax, eff) AND r.inc > 0 AND NOT r.seqcycle THEN
       th := th || format('the limit is the sequence''s MAXVALUE %s, not the column''s %s', eff, r.coltype);
     END IF;
 
-    -- The data: only through an index whose leading column is this one (s12), only for ascending.
-    data_at := NULL;
-    IF r.inc > 0 AND r.attname IS NOT NULL THEN
+    -- The data: only through an index whose leading column is this one (s12, s13), at the end the
+    -- sequence is heading for: the highest key for an ascending sequence, the lowest for a descending one.
+    data_at := NULL; taken := NULL;
+    IF r.attname IS NOT NULL THEN
       IF EXISTS (SELECT 1 FROM pg_index i JOIN pg_class ic ON ic.oid = i.indexrelid
                    JOIN pg_am am ON am.oid = ic.relam
                   WHERE i.indrelid = r.tbl_oid AND i.indkey[0] = r.attnum AND am.amname = 'btree'
                     AND i.indpred IS NULL AND i.indisvalid) THEN
         IF has_table_privilege(r.tbl_oid, 'SELECT') AND has_schema_privilege(r.tbl_schema, 'USAGE') THEN
-          -- The index's last entry: ORDER BY ... DESC LIMIT 1 reads one leaf page, however large the table.
+          -- The index's end entry: ORDER BY ... LIMIT 1 reads one leaf page, however large the table, and
+          -- whether the next value is already taken is one more index lookup.
           BEGIN
-            EXECUTE format('SELECT %I::numeric FROM %I.%I WHERE %I IS NOT NULL ORDER BY %I DESC LIMIT 1',
-                           r.attname, r.tbl_schema, r.tbl_name, r.attname, r.attname) INTO data_at;
+            EXECUTE format('SELECT %I::numeric FROM %I.%I WHERE %I IS NOT NULL ORDER BY %I %s LIMIT 1',
+                           r.attname, r.tbl_schema, r.tbl_name, r.attname, r.attname,
+                           CASE WHEN r.inc > 0 THEN 'DESC' ELSE 'ASC' END) INTO data_at;
+            EXECUTE format('SELECT EXISTS (SELECT 1 FROM %I.%I WHERE %I = $1)', r.tbl_schema, r.tbl_name, r.attname)
+               INTO taken USING nv;
           EXCEPTION WHEN lock_not_available THEN
             un := un || format('whether the sequence is behind the data is not established: %I.%I is locked', r.tbl_schema, r.tbl_name);
           END;
@@ -133,28 +165,42 @@ BEGIN
     END IF;
 
     current_value := cur; limit_value := eff; until_date := NULL; "then" := th; unknowns := un;
-    IF data_at IS NOT NULL AND data_at > cur THEN
+    -- The four states, each on its own test: behind the data, exhausted, a count, nothing to report.
+    IF data_at IS NOT NULL AND ((r.inc > 0 AND data_at >= nv) OR (r.inc < 0 AND data_at <= nv)) THEN
+      -- Keys already exist where the sequence is heading. For a cycling sequence that is the wrap.
       rank_class := 1; used_fraction := NULL;
       state := CASE WHEN r.seqcycle THEN 'cycled into existing keys' ELSE 'behind the data' END;
-      detail := format('the sequence is behind the data (sequence at %s, data at %s): the next default id collides now. Fix, to run by hand: SELECT setval(%L, %s)',
-                       cur, data_at, format('%I.%I', r.seq_schema, r.seq_name), data_at);
+      -- setval past the data is the fix only for a sequence that does not cycle: a cycling one set to the
+      -- end of its data wraps straight back into it (s3_cyc, s13_ring).
+      detail := format('%s (sequence at %s, data at %s): %s. %s',
+                       CASE WHEN r.seqcycle THEN 'the sequence has wrapped into existing keys' ELSE 'the sequence is behind the data' END,
+                       cur, data_at,
+                       CASE WHEN taken THEN format('the next default id, %s, is already taken, so the next insert fails', nv)
+                            ELSE format('default ids from %s to %s collide with any rows that hold them', nv, data_at) END,
+                       CASE WHEN r.seqcycle
+                            THEN 'No setval fixes a cycling sequence: it would wrap back into the same keys. Free the old keys, or widen its range'
+                            ELSE format('Fix, to run by hand: SELECT setval(%L, %s)', format('%I.%I', r.seq_schema, r.seq_name), data_at) END);
       rank_label := lbl[rank_class]; RETURN NEXT;
-    ELSIF NOT r.seqcycle AND ((r.inc > 0 AND cur >= eff) OR (r.inc < 0 AND cur <= eff)) THEN
+    ELSIF nleft = 0 AND NOT wraps THEN
+      -- No call left: the next nextval() fails, or hands out a value the column cannot hold (s1).
       rank_class := 1; used_fraction := NULL; state := 'exhausted';
       detail := format('%s (%s) is exhausted: the limit is %s%s', object, coalesce(r.coltype, 'sequence'), eff,
                        CASE WHEN (r.inc > 0 AND cur > eff) OR (r.inc < 0 AND cur < eff)
-                            THEN format(', and the sequence stands past it at %s: failed inserts still consume values', cur) ELSE '' END);
+                            THEN format(', and the sequence stands past it at %s: failed inserts still consume values', cur)
+                            ELSE format(', and the next value would be %s', nv) END);
       rank_label := lbl[rank_class]; RETURN NEXT;
     ELSIF frac >= min_used THEN
       rank_class := 3; used_fraction := round(frac, 4); state := 'no rate yet';
-      detail := format('%s of %s values left (%s, %s)', abs(eff - cur),
-                       CASE WHEN r.inc > 0 THEN eff - r.seqmin ELSE r.seqmax - eff END + 1, coalesce(r.coltype, 'sequence'),
-                       CASE WHEN r.inc > 0 THEN 'ascending' ELSE 'descending' END);
-      IF r.seqcycle THEN
-        "then" := "then" || 'it cycles instead of failing: after the wrap, every insert collides with an existing key'::text;
+      -- nleft and total are counts of calls, never negative, and nleft <= total, so frac is in 0..1.
+      detail := format('%s of %s values left%s (%s, %s%s)', nleft, total,
+                       CASE WHEN wraps THEN format(' before it wraps to %s', CASE WHEN r.inc > 0 THEN r.seqmin ELSE r.seqmax END) ELSE '' END,
+                       coalesce(r.coltype, 'sequence'), CASE WHEN r.inc > 0 THEN 'ascending' ELSE 'descending' END,
+                       CASE WHEN step <> 1 THEN format(' by %s', step) ELSE '' END);
+      IF wraps THEN
+        "then" := "then" || 'it cycles instead of failing: after the wrap, inserts collide with any keys still held from the last pass'::text;
       END IF;
       rank_label := lbl[rank_class]; RETURN NEXT;
-    ELSIF r.attname IS NOT NULL AND r.inc > 0 AND NOT has_table_privilege(r.tbl_oid, 'SELECT') THEN
+    ELSIF r.attname IS NOT NULL AND NOT has_table_privilege(r.tbl_oid, 'SELECT') THEN
       NULL;   -- counted in unread, reported once below
     ELSIF cardinality(un) > 0 THEN
       -- Far from its limit, but whether it is behind its data could not be read: a gap, listed.

@@ -13,8 +13,9 @@ the scenario evidence; `scenarios/check-evidence.sh` checks them.
 ## The order
 
 1. **Reached, failing now.** Inserts are being refused today: s1's column, s2's identity, s4's foreign key,
-   s7's missing partition, s3's cycling sequence colliding, s12's sequence behind its data. These outrank everything, however close
-   anything else is.
+   s7's missing partition, s3's and s13's cycling sequences colliding after the wrap, s12's sequence behind
+   its data, s13's descending sequence whose next step passes its floor. These outrank everything, however
+   close anything else is. A sequence in one of these states is given no count and no share used.
 2. **A date**, soonest first: projected from a rate (sequences, XIDs, MultiXacts, slots with
    `max_slot_wal_keep_size`), or fixed (password expiry, the last partition's bound). One timeline: a
    password that expires in 3 days sorts before a sequence projected to run out in 30.
@@ -29,6 +30,12 @@ time-partitioned table whose last partition ended on `2026-02-01`, refusing ever
 The partition comes first. The sequence is closer in every number a dashboard shows and is not failing.
 
 ## Secondary lines the scenarios forced
+
+- **A cycling sequence** (s3, s13): before the wrap it is counted like any other, "N of M values left
+  before it wraps to X", with `then: it cycles instead of failing: after the wrap, inserts collide with any
+  keys still held from the last pass`. The count was checked against the inserts that then succeeded
+  (rate.md has the measurement, and why Piotr's proposal of no count for any cycling sequence was not
+  needed). After the wrap it is "cycled into existing keys", and the finding says no `setval` fixes it.
 
 - **A DEFAULT partition** (s7): the row past the last bound went into the DEFAULT
   ([1](../scenarios/evidence/s7_partitions.pg18.txt) row) instead of failing, which hides the limit, and that
