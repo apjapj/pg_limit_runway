@@ -1,0 +1,25 @@
+
+the usual check (pg_sequences, last_value against max_value)
+ sequencename | data_type | last_value | max_value | pct_used
+ s1_orders_id_seq | bigint | 2147483647 | 9223372036854775807 | 0.000000
+(1 row)
+
+
+what actually happens: the next insert
+ ERROR: integer out of range
+
+evidence: the column the sequence feeds, through pg_depend
+ sequence | tbl | col | col_type | seq_type | last_value | left_before_column_overflows
+ s1_orders_id_seq | s1_orders | id | integer | bigint | 2147483648 | -1
+(1 row)
+
+
+checks
+ PASS the usual check reports under 0.001% used
+ PASS the next insert fails with integer out of range
+ PASS the failed insert still consumed a value: the sequence is past the column's maximum
+
+expected finding
+ s1_orders.id (int4) is exhausted. The limit is the column's 2147483647, found through pg_depend, not
+ the bigint sequence's. And the failed insert still consumed a value, so the sequence now stands PAST
+ the column's maximum (2147483648) and 'values left' computes to -1: report exhausted, not a count.

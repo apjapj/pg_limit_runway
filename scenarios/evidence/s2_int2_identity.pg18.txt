@@ -1,0 +1,18 @@
+
+the usual check (pg_sequences)
+ sequencename | data_type | last_value | max_value | pct_used
+ s2_events_id_seq | smallint | 32767 | 32767 | 100.00
+(1 row)
+
+
+what actually happens: the next insert
+ ERROR: nextval: reached maximum value of sequence "s2_events_id_seq" (32767)
+
+checks
+ PASS the identity sequence is smallint, created to match the column
+ PASS 32767 rows went in
+ PASS the next insert fails at the sequence's maximum
+
+expected finding
+ s2_events.id (int2 identity): 0 of 32767 values left. Here the usual check is right (100%), because an
+ identity sequence is created with the column's type; the trap is only that int2 runs out at 32767.

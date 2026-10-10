@@ -1,0 +1,14 @@
+
+part 1: max_slot_wal_keep_size unset (-1)
+ after 4 segments of WAL and a checkpoint: reserved, safe_wal_size NULL
+ PASS unset, the slot is not threatened with invalidation: wal_status is reserved, safe_wal_size NULL
+ PASS and it holds WAL back: its restart_lsn is 4 segments or more behind
+
+part 2: max_slot_wal_keep_size = 32MB
+ set: unreserved, safe_wal_size negative
+ after more WAL and checkpoints: lost, safe_wal_size NULL
+ PASS set, the slot is invalidated: wal_status lost
+
+expected finding
+ unset: the slot's limit is the disk holding pg_wal, a different limit with no invalidation, and
+ safe_wal_size is NULL. Set: the limit is safe_wal_size counting down to invalidation, then 'lost'.
