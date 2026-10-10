@@ -68,7 +68,7 @@ so.
   not a slope: report peak used vs available over the window, not a projected date. Partitions run out
   on the upper bound of the last partition, which is a date with no projection at all.
 
-### 3. Get the limits right, one at a time, with fixtures
+### 3. ~~Get the limits right, one at a time, with fixtures~~ **Done: [scenarios/](scenarios/README.md)**
 
 As pg_lock_tree did with `scenarios/`: build each case for real. The traps worth a fixture each:
 
@@ -88,6 +88,12 @@ As pg_lock_tree did with `scenarios/`: build each case for real. The traps worth
 8. **An inactive slot** with `max_slot_wal_keep_size` set and unset; with it unset, the risk is the
    disk filling, not invalidation, and that is a different limit.
 9. **A role with `VALID UNTIL`**, and `infinity`.
+
+Built as eleven scenarios, run on PostgreSQL 14 and 18; six of them showed behaviour this list did not
+expect (failed inserts consume sequence values, a forced vacuum need not lower the age, MultiXacts are per
+locker set, a DEFAULT partition blocks the fix, expired passwords still allow non-password logins,
+superusers bypass connection limits). How rate is measured and how limits are ordered are now decided in
+[docs/rate.md](docs/rate.md) and [docs/ranking.md](docs/ranking.md), before any SQL.
 
 ### 4. The first version: current state only
 
