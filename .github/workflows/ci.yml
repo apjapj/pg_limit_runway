@@ -9,8 +9,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - run: ./scenarios/check-workflows.sh
       - run: ./scenarios/check-evidence.sh
-      - run: for s in scenarios/*.sh ci/*.sh; do bash -n "$s" || exit 1; done
+      - run: for s in scenarios/*.sh ci/*.sh scripts/*.sh; do bash -n "$s" || exit 1; done
   scenarios:
     runs-on: ubuntu-latest
     strategy:

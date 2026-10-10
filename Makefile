@@ -10,4 +10,7 @@ prove:
 	pg_prove --dbname $(TESTDB) test/*.sql
 lint:
 	./scenarios/check-evidence.sh
+	# Rejects a duplicated mapping key, which PyYAML accepts silently and Forgejo does not.
+	# A workflow with one dispatches no jobs at all and its run reads as a plain failure.
+	./scripts/check-workflows.sh
 .PHONY: install prove lint
