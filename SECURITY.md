@@ -1,0 +1,46 @@
+# Security policy
+
+## Supported versions
+
+| Version | Supported |
+|---|---|
+| `main` (0.1, not yet tagged) | **yes** |
+
+There is no released version yet. Fixes are made on `main`; once versions are released, the newest
+is supported and released tags are not edited.
+
+## Reporting a vulnerability
+
+**Do not open a public issue.** There are two ways to report privately, and either is fine.
+
+**By e-mail: linux.postgres+pg_limit_runway@gmail.com.** This works today, while the repository is
+private.
+
+**By GitHub:** the **Report a vulnerability** button, on this repository's Security tab, under
+Advisories. A report there is a private advisory that only you and the maintainers can see, and you
+are credited on it. **It is not available until the repository is public.** GitHub offers private
+vulnerability reporting on public repositories only, and its API answers 404 on a private repository,
+so until then the e-mail above is the channel that works and this one is not yet there.
+
+Either way, please include the pg_limit_runway version (`SELECT extversion FROM pg_extension WHERE extname =
+'pg_limit_runway'`), the PostgreSQL major version, the roles the statements ran as and their grants, and the
+smallest set of statements that shows the problem.
+
+You will get an acknowledgement within 7 days. This is a small project maintained in spare time, so
+there is no fixed date for a fix; you will be told what is planned, and credited in the CHANGELOG
+unless you ask not to be.
+
+## What counts
+
+pg_limit_runway is pure SQL, reads only, and every function and the view run with the **caller's**
+rights (`SECURITY INVOKER`; none is `SECURITY DEFINER`), as INSTALL.md explains. So the issues that
+matter most are about privilege and about writing:
+
+- a role reading something its grants should hide: a sequence's position without `SELECT` on it, a
+  table's keys without `SELECT` on the table, or other sessions without `pg_read_all_stats`;
+- anything in the extension writing (it names fixes such as `setval` as text and must never run
+  them), waiting on a lock beyond its `lock_timeout`, or running code as another role, for example
+  through an unqualified name and `search_path`;
+- a role with no grants able to call a function: all are revoked from `PUBLIC` by default.
+
+A limit reported wrongly, or missed, is a bug, not a vulnerability; please open an ordinary issue.
