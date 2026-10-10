@@ -126,6 +126,8 @@ which asserts the extension's finding against its fixture, on 14 and 18. What bu
 
 ### 5. Add history and dates
 
+Designed, not built: [docs/history.md](docs/history.md), with four open questions.
+
 `limit_runway_sample()`, a history table, and the projection. Keep the sample cheap: it must not
 `SELECT max(id)` on large tables, which is why columns without a sequence (application-generated
 keys) are out of scope for v1 and should be listed as "not watched" rather than silently skipped.
