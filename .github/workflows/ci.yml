@@ -1,0 +1,25 @@
+# .github/workflows/ci.yml: lint (every linked figure is in its evidence file) and the scenario suite on
+# PostgreSQL 14 and 18, the versions with committed evidence. Everything a job does is in ci/job.sh.
+name: ci
+on:
+  push:
+  pull_request:
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scenarios/check-evidence.sh
+      - run: for s in scenarios/*.sh ci/*.sh; do bash -n "$s" || exit 1; done
+  scenarios:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pg: ["14", "18"]
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q postgresql-client
+      - run: ./ci/job.sh ${{ matrix.pg }}
