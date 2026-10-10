@@ -13,6 +13,10 @@ checks
  PASS 32767 rows went in
  PASS the next insert fails at the sequence's maximum
 
+what pg_limit_runway says
+ [failing now] sequence lr_scen.s2_events.id: lr_scen.s2_events.id (smallint) is exhausted: the limit is 32767.
+ PASS finding for lr_scen.s2_events.id: exhausted (class 1)
+
 expected finding
  s2_events.id (int2 identity): 0 of 32767 values left. Here the usual check is right (100%), because an
  identity sequence is created with the column's type; the trap is only that int2 runs out at 32767.

@@ -42,6 +42,12 @@ assert_true "a pg_monitor role cannot list member space: pg_ls_dir is refused" "
 say "the thresholds"
 psql -X -P pager=off -c "SELECT current_setting('autovacuum_multixact_freeze_max_age')::bigint AS autovacuum_multixact_freeze_max_age,
        current_setting('vacuum_multixact_failsafe_age')::bigint AS vacuum_multixact_failsafe_age"
+if use_extension; then
+    psql_q -c "GRANT EXECUTE ON FUNCTION limit_runway_findings(numeric, interval), limit_runway_text(numeric, interval) TO lr_scen_monitor" -c "GRANT SELECT ON limit_runway TO lr_scen_monitor"
+    say "what pg_limit_runway says about member space, as superuser and as the pg_monitor role"
+    assert_finding 'member space' 'not established' '' '%member segment file%' '' 5
+    LR_ROLE=lr_scen_monitor assert_finding 'member space' 'not established' '' '%needs superuser, or EXECUTE on pg_ls_dir%' '' 5
+fi
 say "expected finding"
 note "MultiXact IDs are consumed per distinct set of lockers, not per row: 100 rounds over 50 rows made 100."
 note "Their age is readable by a pg_monitor role and is reported like XID age. Member space is NOT:"

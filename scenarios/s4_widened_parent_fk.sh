@@ -30,6 +30,8 @@ SELECT con.conname, format_type(ca.atttypid, ca.atttypmod) AS child_col_type,
 say "checks"
 assert_true "the parent's sequence is under 0.001% used" "$(val "SELECT 100.0 * last_value / max_value < 0.001 FROM pg_sequences WHERE sequencename LIKE 's4_customers%'")"
 assert_true "an order for the newest customer fails with integer out of range" "$([[ "$err" == *"integer out of range"* ]] && echo t || echo f)"
+finding "lr_scen.s4_%"
+assert_finding lr_scen.s4_orders.customer_id exhausted '%s4_customers.id is bigint%' '' '%past 2147483647%' 1
 say "expected finding"
 note "s4_orders.customer_id (int4) references s4_customers.id (bigint), which is already past 2147483647:"
 note "new customers can no longer be referenced. A limit on the child column, reached through the parent."

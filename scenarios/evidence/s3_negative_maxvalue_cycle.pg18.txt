@@ -7,6 +7,14 @@ the usual check (pg_sequences, last_value against max_value)
 (3 rows)
 
 
+what pg_limit_runway says
+ [failing now] sequence lr_scen.s3_capped_t.id: lr_scen.s3_capped_t.id (bigint) is exhausted: the limit is 1000. Then: the limit is the sequence's MAXVALUE 1000, not the column's bigint.
+ [no rate yet] sequence lr_scen.s3_cyc_t.id: 0 of 100 values left (integer, ascending). Then: it cycles instead of failing: after the wrap, every insert collides with an existing key.
+ [no rate yet] sequence lr_scen.s3_desc: 3 of 2147483648 values left (sequence, descending).
+ PASS finding for lr_scen.s3_desc: no rate yet (class 3)
+ PASS finding for lr_scen.s3_capped_t.id: exhausted (class 1), then %MAXVALUE 1000, not the column%
+ PASS finding for lr_scen.s3_cyc_t.id: no rate yet (class 3), then %cycles instead of failing%
+
 what actually happens
  a) descending: nextval gave -2147483646, -2147483647, -2147483648, then: ERROR: nextval: reached minimum value of sequence "s3_desc" (-2147483648)
  b) MAXVALUE 1000 on a bigint column: ERROR: nextval: reached maximum value of sequence "s3_capped" (1000)
@@ -18,6 +26,15 @@ checks
  PASS the capped sequence fails at MAXVALUE 1000, far below bigint's
  PASS the cycling sequence wrapped to 1 instead of failing
  PASS and the insert collided with an existing key
+
+after: the descending sequence has run out, and the cycling one has wrapped into its data
+
+what pg_limit_runway says
+ [failing now] sequence lr_scen.s3_capped_t.id: lr_scen.s3_capped_t.id (bigint) is exhausted: the limit is 1000. Then: the limit is the sequence's MAXVALUE 1000, not the column's bigint.
+ [failing now] sequence lr_scen.s3_cyc_t.id: the sequence is behind the data (sequence at 2, data at 100): the next default id collides now. Fix, to run by hand: SELECT setval('lr_scen.s3_cyc', 100).
+ [failing now] sequence lr_scen.s3_desc: lr_scen.s3_desc (sequence) is exhausted: the limit is -2147483648.
+ PASS finding for lr_scen.s3_desc: exhausted (class 1)
+ PASS finding for lr_scen.s3_cyc_t.id: cycled into existing keys (class 1)
 
 expected finding
  a) s3_desc: 3 values left, measured downwards to min_value. b) s3_capped: 0 left, the limit is

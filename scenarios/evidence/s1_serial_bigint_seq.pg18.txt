@@ -19,6 +19,10 @@ checks
  PASS the next insert fails with integer out of range
  PASS the failed insert still consumed a value: the sequence is past the column's maximum
 
+what pg_limit_runway says
+ [failing now] sequence lr_scen.s1_orders.id: lr_scen.s1_orders.id (integer) is exhausted: the limit is 2147483647, and the sequence stands past it at 2147483648: failed inserts still consume values.
+ PASS finding for lr_scen.s1_orders.id: exhausted (class 1)
+
 expected finding
  s1_orders.id (int4) is exhausted. The limit is the column's 2147483647, found through pg_depend, not
  the bigint sequence's. And the failed insert still consumed a value, so the sequence now stands PAST

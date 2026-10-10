@@ -48,6 +48,10 @@ assert_true "the usual check says there is plenty of headroom" "$(val "SELECT co
 assert_true "and the role is out: a third session is refused" "$([[ "$er" == *"too many connections for role"* ]] && echo t || echo f)"
 assert_true "and the database is out: a second ordinary session is refused" "$([[ "$ed" == *"too many connections for database"* ]] && echo t || echo f)"
 assert_true "but a superuser is let in past the database's limit" "$([ "$es" = "superuser let in" ] && echo t || echo f)"
+finding "% lr_scen_%"
+assert_finding 'role lr_scen_app' full '%superusers are exempt%' '' '2 of 2 connections%' 1
+assert_finding 'database lr_scen_db' full '%superusers are exempt%' '' '1 of 1 connections%' 1
+assert_finding 'role lr_scen_web' none
 say "expected finding"
 note "lr_scen_app: 2 of 2 connections in use; lr_scen_db: 1 of 1. Both full while the server has headroom."
 note "Headroom is a peak against a limit, not a rate: report the highest use over the window, per role and"

@@ -22,6 +22,10 @@ checks
  PASS the sequence is behind the data
  PASS max(id) is read through the primary key index, not a sequential scan
 
+what pg_limit_runway says
+ [failing now] sequence lr_scen.s12_items.id: the sequence is behind the data (sequence at 1, data at 5): the next default id collides now. Fix, to run by hand: SELECT setval('lr_scen.s12_items_id_seq', 5).
+ PASS finding for lr_scen.s12_items.id: behind the data (class 1)
+
 expected finding
  s12_items.id: the sequence is behind the data, so the next insert fails now. Not a projection and not a
  percentage: a state, with the fix to run by hand: SELECT setval('s12_items_id_seq', max(id)) FROM ...

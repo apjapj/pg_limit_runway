@@ -15,6 +15,10 @@ the usual check, and the distances a tool would report (this database)
 (1 row)
 
 
+what pg_limit_runway says (ages vary between runs, so only the checks are kept)
+ PASS finding for lr_scen.s5_ledger: no rate yet (class 3), then %forced vacuum need not lower the age%
+ PASS finding for lr_scen.s5_ledger_fmin0: none
+
 expected finding
  XID age is the database's age(datfrozenxid), read without assigning an xid. The forced vacuum starts at
  autovacuum_freeze_max_age and ignores autovacuum_enabled = false. But it only freezes rows older than

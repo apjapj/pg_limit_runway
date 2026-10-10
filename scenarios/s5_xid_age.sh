@@ -39,6 +39,9 @@ SELECT datname,
        current_setting('vacuum_failsafe_age')::bigint AS vacuum_failsafe_age,
        2147483648 AS wraparound
   FROM pg_database WHERE datname = current_database()"
+say "what pg_limit_runway says (ages vary between runs, so only the checks are kept)"
+assert_finding lr_scen.s5_ledger 'no rate yet' '%forced vacuum need not lower the age%' '' '%anti-wraparound vacuum is due%' 3
+assert_finding lr_scen.s5_ledger_fmin0 none
 say "expected finding"
 note "XID age is the database's age(datfrozenxid), read without assigning an xid. The forced vacuum starts at"
 note "autovacuum_freeze_max_age and ignores autovacuum_enabled = false. But it only freezes rows older than"

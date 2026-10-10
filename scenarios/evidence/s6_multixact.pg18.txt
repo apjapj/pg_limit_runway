@@ -17,6 +17,10 @@ the thresholds
 (1 row)
 
 
+what pg_limit_runway says about member space, as superuser and as the pg_monitor role
+ PASS finding for member space: not established (class 5), unknowns %member segment file%
+ PASS finding for member space: not established (class 5), unknowns %needs superuser, or EXECUTE on pg_ls_dir%
+
 expected finding
  MultiXact IDs are consumed per distinct set of lockers, not per row: 100 rounds over 50 rows made 100.
  Their age is readable by a pg_monitor role and is reported like XID age. Member space is NOT:

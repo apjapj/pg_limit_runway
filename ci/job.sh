@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# ci/job.sh <major>: the whole CI job, runnable anywhere with Docker and psql. Builds a scratch server
-# from ci/Dockerfile, runs every scenario, and requires the evidence to equal what is committed, byte for
-# byte. Modelled on pg_bloat_cause's ci/job.sh; strict from the start, because these scenarios print no
+# ci/job.sh <major>: the whole CI job, runnable anywhere with Docker, psql and pg_prove. Builds a scratch
+# server from ci/Dockerfile, installs the extension md5-verified, runs the pgTAP tests, runs every
+# scenario (which also check the extension's findings), and requires the evidence to equal what is
+# committed, byte for byte. Modelled on pg_bloat_cause's ci/job.sh; strict from the start, because these scenarios print no
 # ids or timestamps and have been byte-identical across runs on two versions.
 set -uo pipefail
 v=${1:?usage: ci/job.sh <postgres major version>}
@@ -14,7 +15,9 @@ docker run -d --rm --name "$c" -p 127.0.0.1:$port:5432 -e POSTGRES_PASSWORD=test
 trap 'docker rm -f "$c" >/dev/null 2>&1' EXIT
 for _ in $(seq 1 60); do pg_isready -q -h 127.0.0.1 -p $port && break; sleep 1; done
 sleep 3
-export PGHOST=127.0.0.1 PGPORT=$port PGUSER=postgres PGPASSWORD=test LR_CONTAINER=$c
+export PGHOST=127.0.0.1 PGPORT=$port PGUSER=postgres PGPASSWORD=test PGDATABASE=postgres LR_CONTAINER=$c
+scenarios/install-extension.sh "$c" || exit 1
+pg_prove --dbname postgres test/*.sql || fail=1
 out=$(scenarios/run.sh); printf '%s\n' "$out"
 grep -qE 'FAILED' <<<"$out" && fail=1
 if git diff --quiet -- "scenarios/evidence/*.pg$v.txt"; then echo "  evidence identical"

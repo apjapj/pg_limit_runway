@@ -36,6 +36,8 @@ say "checks"
 assert_true "the usual check reports under 0.001% used" "$(val "SELECT 100.0 * last_value / max_value < 0.001 FROM pg_sequences WHERE sequencename = 's1_orders_id_seq'")"
 assert_true "the next insert fails with integer out of range" "$([[ "$err" == *"integer out of range"* ]] && echo t || echo f)"
 assert_true "the failed insert still consumed a value: the sequence is past the column's maximum" "$(val "SELECT last_value > 2147483647 FROM pg_sequences WHERE sequencename = 's1_orders_id_seq'")"
+finding "lr_scen.s1_orders.id"
+assert_finding lr_scen.s1_orders.id exhausted '' '' '%stands past it at 2147483648%' 1
 say "expected finding"
 note "s1_orders.id (int4) is exhausted. The limit is the column's 2147483647, found through pg_depend, not"
 note "the bigint sequence's. And the failed insert still consumed a value, so the sequence now stands PAST"

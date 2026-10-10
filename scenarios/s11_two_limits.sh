@@ -21,6 +21,10 @@ say "checks"
 assert_true "s11_tickets still accepts inserts" "$([ -z "$et" ] && echo t || echo f)"
 assert_true "s11_tickets has 6 values left after that insert" "$(val "SELECT max_value - last_value = 6 FROM pg_sequences WHERE sequencename LIKE 's11_tickets%'")"
 assert_true "s11_audit already refuses every insert for the present" "$([[ "$ea" == *"no partition of relation"* ]] && echo t || echo f)"
+finding "lr_scen.s11_%"
+assert_finding lr_scen.s11_audit reached '' '' '' 1
+assert_finding lr_scen.s11_tickets.id 'no rate yet' '' '' '6 of 32767 values left%' 3
+assert_ranked_before lr_scen.s11_audit lr_scen.s11_tickets.id
 say "expected finding"
 note "First s11_audit: already reached, failing now. Then s11_tickets: 6 values left, no rate yet, so no"
 note "date. A limit that is failing now outranks one that is merely close, however close."

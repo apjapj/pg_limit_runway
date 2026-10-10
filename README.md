@@ -95,10 +95,23 @@ locker set, a DEFAULT partition blocks the fix, expired passwords still allow no
 superusers bypass connection limits). How rate is measured and how limits are ordered are now decided in
 [docs/rate.md](docs/rate.md) and [docs/ranking.md](docs/ranking.md), before any SQL.
 
-### 4. The first version: current state only
+### 4. ~~The first version: current state only~~ **Done: 0.1, [INSTALL.md](INSTALL.md)**
 
 `limit_runway` (view) and `limit_runway_text()`, every limit with current value, limit, and "no rate
 yet". Useful the day it is installed, and it is where the type and catalog logic is tested.
+
+Built as `limit_runway_findings(min_used, date_window)` behind both, in the three finding states of
+[docs/ranking.md](docs/ranking.md). Tested by `test/01_limit_runway.sql` (pgTAP) and by every scenario,
+which asserts the extension's finding against its fixture, on 14 and 18. What building it changed:
+
+- The serial finding is a state first: **exhausted** (never a negative count or more than 100%),
+  **behind the data** (with the `setval` to run by hand), **cycled into existing keys**, and only
+  otherwise a count of values left. Behind-the-data is read through an index whose leading column is the
+  column, one leaf page; with no such index it is "not established", and the table is never scanned.
+- Connection counts need `pg_read_all_stats`, as step 7 said: measured on 14 and 18, a role without it
+  sees other sessions with their type, user and database hidden and would count 0 of N. Such a role gets
+  "not established", not a low count.
+- Sequences no column owns are watched against their own limits (s3's descending sequence).
 
 ### 5. Add history and dates
 

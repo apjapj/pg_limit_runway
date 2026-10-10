@@ -18,6 +18,8 @@ say "checks"
 assert_true "the identity sequence is smallint, created to match the column" "$(val "SELECT data_type = 'smallint'::regtype FROM pg_sequences WHERE sequencename LIKE 's2_events%'")"
 assert_true "32767 rows went in" "$(val "SELECT count(*) = 32767 FROM $SCHEMA.s2_events")"
 assert_true "the next insert fails at the sequence's maximum" "$([[ "$err" == *"reached maximum value"* ]] && echo t || echo f)"
+finding "lr_scen.s2_events.id"
+assert_finding lr_scen.s2_events.id exhausted '' '' '%limit is 32767%' 1
 say "expected finding"
 note "s2_events.id (int2 identity): 0 of 32767 values left. Here the usual check is right (100%), because an"
 note "identity sequence is created with the column's type; the trap is only that int2 runs out at 32767."

@@ -22,6 +22,11 @@ SELECT sequencename, data_type, increment_by, min_value, max_value, cycle, last_
        round(100.0 * last_value / max_value, 2) AS pct_used
   FROM pg_sequences WHERE schemaname = '$SCHEMA' ORDER BY 1"
 
+finding "lr_scen.s3_%"
+assert_finding lr_scen.s3_desc 'no rate yet' '' '' '3 of 2147483648 values left%descending%' 3
+assert_finding lr_scen.s3_capped_t.id exhausted '%MAXVALUE 1000, not the column%' '' '%limit is 1000%' 1
+assert_finding lr_scen.s3_cyc_t.id 'no rate yet' '%cycles instead of failing%' '' '0 of 100 values left%' 3
+
 say "what actually happens"
 d1=$(val "SELECT nextval('$SCHEMA.s3_desc')"); d2=$(val "SELECT nextval('$SCHEMA.s3_desc')"); d3=$(val "SELECT nextval('$SCHEMA.s3_desc')")
 derr=$(try_sql "SELECT nextval('$SCHEMA.s3_desc')")
@@ -38,6 +43,10 @@ assert_true "the descending sequence fails at its minimum" "$([[ "$derr" == *"re
 assert_true "the capped sequence fails at MAXVALUE 1000, far below bigint's" "$([[ "$cerr" == *"reached maximum value"*"1000"* ]] && echo t || echo f)"
 assert_true "the cycling sequence wrapped to 1 instead of failing" "$([ "$cycv" = 1 ] && echo t || echo f)"
 assert_true "and the insert collided with an existing key" "$([[ "$yerr" == *"duplicate key value"* ]] && echo t || echo f)"
+say "after: the descending sequence has run out, and the cycling one has wrapped into its data"
+finding "lr_scen.s3_%"
+assert_finding lr_scen.s3_desc exhausted '' '' '%limit is -2147483648' 1
+assert_finding lr_scen.s3_cyc_t.id 'cycled into existing keys' '' '' '%sequence at 2, data at 100%setval(%s3_cyc%, 100)' 1
 say "expected finding"
 note "a) s3_desc: 3 values left, measured downwards to min_value. b) s3_capped: 0 left, the limit is"
 note "MAXVALUE 1000, not bigint. c) s3_cyc: a different finding, not exhaustion: it has wrapped and every"

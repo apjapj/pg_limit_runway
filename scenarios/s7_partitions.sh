@@ -43,6 +43,10 @@ assert_true "without a DEFAULT, the insert past the last bound fails" "$([[ "$e1
 assert_true "with a DEFAULT, the same insert succeeds, into the default" "$([ -z "$e2" ] && [ "$(val "SELECT count(*) FROM $SCHEMA.s7_events_dflt_default")" = 1 ] && echo t || echo f)"
 assert_true "and the partition for that range can then no longer be created" "$([[ "$e3" == *"would be violated"* ]] && echo t || echo f)"
 assert_true "s7_accounts is partitioned on a non-time key" "$(val "SELECT NOT (a.atttypid IN ('timestamptz'::regtype, 'timestamp'::regtype, 'date'::regtype)) FROM pg_partitioned_table p JOIN pg_attribute a ON a.attrelid = p.partrelid AND a.attnum = p.partattrs[0] WHERE p.partrelid = '$SCHEMA.s7_accounts'::regclass")"
+finding "lr_scen.s7_%"
+assert_finding lr_scen.s7_events reached '' '' '%ended at 2026-03-01%inserts for the present fail now%' 1
+assert_finding lr_scen.s7_events_dflt reached '%DEFAULT%holds rows%cannot be created until they are moved%' '' '%go silently into the DEFAULT%' 1
+assert_finding lr_scen.s7_accounts none
 say "expected finding"
 note "s7_events: runs out at 2026-03-01, a fixed boundary with no rate. s7_events_dflt: has 'run out' into its"
 note "DEFAULT, which hides it, and that row now blocks creating the missing partition: a worse finding, not a"

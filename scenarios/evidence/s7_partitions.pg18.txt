@@ -28,6 +28,13 @@ checks
  PASS and the partition for that range can then no longer be created
  PASS s7_accounts is partitioned on a non-time key
 
+what pg_limit_runway says
+ [failing now] partition lr_scen.s7_events: the last partition ended at 2026-03-01 00:00:00+00: inserts for the present fail now.
+ [failing now] partition lr_scen.s7_events_dflt: the last partition ended at 2026-03-01 00:00:00+00: rows for the present go silently into the DEFAULT. Then: the DEFAULT lr_scen.s7_events_dflt_default holds rows past the last bound: the partition for their range cannot be created until they are moved.
+ PASS finding for lr_scen.s7_events: reached (class 1)
+ PASS finding for lr_scen.s7_events_dflt: reached (class 1), then %DEFAULT%holds rows%cannot be created until they are moved%
+ PASS finding for lr_scen.s7_accounts: none
+
 expected finding
  s7_events: runs out at 2026-03-01, a fixed boundary with no rate. s7_events_dflt: has 'run out' into its
  DEFAULT, which hides it, and that row now blocks creating the missing partition: a worse finding, not a

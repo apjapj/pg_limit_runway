@@ -31,6 +31,8 @@ assert_true "the usual check reports more than 100% used" "$(val "SELECT 100.0 *
 assert_true "the next default id collides with loaded data" "$([[ "$err" == *"duplicate key value"* ]] && echo t || echo f)"
 assert_true "the sequence is behind the data" "$(val "SELECT coalesce(last_value, start_value - 1) < (SELECT max(id) FROM $SCHEMA.s12_items) FROM pg_sequences WHERE sequencename = 's12_items_id_seq'")"
 assert_true "max(id) is read through the primary key index, not a sequential scan" "$( psql -X -At -c "EXPLAIN (COSTS OFF) SELECT max(id) FROM $SCHEMA.s12_items" | grep -qi 'index' && echo t || echo f)"
+finding "lr_scen.s12_%"
+assert_finding lr_scen.s12_items.id 'behind the data' '' '' '%sequence at 1, data at 5%setval(%s12_items_id_seq%, 5)' 1
 say "expected finding"
 note "s12_items.id: the sequence is behind the data, so the next insert fails now. Not a projection and not a"
 note "percentage: a state, with the fix to run by hand: SELECT setval('s12_items_id_seq', max(id)) FROM ..."

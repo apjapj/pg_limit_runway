@@ -28,6 +28,13 @@ checks
  PASS and the database is out: a second ordinary session is refused
  PASS but a superuser is let in past the database's limit
 
+what pg_limit_runway says
+ [failing now] connections database lr_scen_db: 1 of 1 connections in use: new sessions are refused. Then: superusers are exempt from this limit.
+ [failing now] connections role lr_scen_app: 2 of 2 connections in use: new sessions are refused. Then: superusers are exempt from this limit.
+ PASS finding for role lr_scen_app: full (class 1), then %superusers are exempt%
+ PASS finding for database lr_scen_db: full (class 1), then %superusers are exempt%
+ PASS finding for role lr_scen_web: none
+
 expected finding
  lr_scen_app: 2 of 2 connections in use; lr_scen_db: 1 of 1. Both full while the server has headroom.
  Headroom is a peak against a limit, not a rate: report the highest use over the window, per role and

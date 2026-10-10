@@ -4,7 +4,11 @@ One script per limit, each building the real situation on a scratch server and p
 what the usual check reports, what actually happens (often the error itself), and the evidence a tool
 would read. A `PASS`/`FAIL` line asserts each claim; `run.sh` reports a scenario with a FAIL as FAILED.
 They exist so that every claim in [docs/rate.md](../docs/rate.md) and [docs/ranking.md](../docs/ranking.md)
-can be checked against a run. No extension SQL exists yet.
+can be checked against a run. When `pg_limit_runway` is installed on the server, each scenario also
+prints what the extension says about its objects and asserts the finding [docs/ranking.md](../docs/ranking.md)
+predicts (`PASS  finding for ...`): state, class, `then` lines and `unknowns`. s3 checks twice, before
+and after its sequences run out; s6 checks as superuser and as a `pg_monitor` role; s8 in both halves.
+`scenarios/install-extension.sh <container>` copies it in, md5-verified.
 
 ```bash
 export PGHOST=127.0.0.1 PGPORT=5818 PGUSER=postgres PGPASSWORD=... LR_CONTAINER=<container>
@@ -35,4 +39,6 @@ images, started with `postgres -c autovacuum_naptime=10s -c log_autovacuum_min_d
 **PostgreSQL 14 and 18 agree on every scenario except s10**, where `reserved_connections` exists on 18
 only and 14 says so. **Reproducible**: two consecutive runs on each version gave byte-identical evidence
 for all 24 files with no masking at all, because the scenarios print facts and booleans rather than ids,
-pids or timestamps; `mask.sh` keeps pg_bloat_cause's convention for when one is needed.
+pids or timestamps. The extension's findings added one: s9's password expiry is set from `now()`, so
+`mask.sh` replaces a run-time timestamp (one with fractional seconds) with `<run-time timestamp>`; s5
+prints only its PASS lines, since its xid ages vary between runs.

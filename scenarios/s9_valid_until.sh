@@ -33,6 +33,11 @@ assert_true "the expired role is refused over a password login" "$([[ "$ex" == *
 assert_true "the role expiring in 3 days still logs in" "$( [ "$(PGUSER=lr_scen_soon PGPASSWORD=test psql -X -At -c 'SELECT 1' 2>/dev/null)" = 1 ] && echo t || echo f)"
 assert_true "infinity and no VALID UNTIL both log in" "$( [ "$(PGUSER=lr_scen_forever PGPASSWORD=test psql -X -At -c 'SELECT 1' 2>/dev/null)$(PGUSER=lr_scen_none PGPASSWORD=test psql -X -At -c 'SELECT 1' 2>/dev/null)" = 11 ] && echo t || echo f)"
 [ -n "${LR_CONTAINER:-}" ] && assert_true "the expired role still logs in where no password is asked for" "$([[ "$sock" == "logged in, over the local socket" ]] && echo t || echo f)"
+finding "role lr_scen_%"
+assert_finding 'role lr_scen_expired' expired '%do not use a password are not affected%' '' '' 1
+assert_finding 'role lr_scen_soon' date '%do not use a password are not affected%' '' '' 2
+assert_finding 'role lr_scen_forever' none
+assert_finding 'role lr_scen_none' none
 say "expected finding"
 note "lr_scen_soon: password expires in 3 days, a fixed date with no rate. lr_scen_expired: expired, which"
 note "refuses PASSWORD logins only; a role that also connects by trust, peer or certificate keeps working, so"
