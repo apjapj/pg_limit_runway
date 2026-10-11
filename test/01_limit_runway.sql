@@ -14,7 +14,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
 CREATE EXTENSION IF NOT EXISTS pg_limit_runway;
 \o
-SELECT plan(35);
+SELECT plan(38);
 
 SELECT has_view('limit_runway', 'the limit_runway view exists');
 SELECT has_function('limit_runway_findings', ARRAY['numeric', 'interval'], 'limit_runway_findings(numeric, interval) exists');
@@ -23,10 +23,13 @@ SELECT columns_are('limit_runway',
   ARRAY['rank_class', 'rank_label', 'kind', 'object', 'current_value', 'limit_value', 'used_fraction',
         'until_date', 'state', 'detail', 'then', 'unknowns'],
   'limit_runway has the columns docs/ranking.md describes, including state, then and unknowns');
-SELECT is((SELECT count(*)::int FROM pg_proc p JOIN pg_depend d ON d.objid = p.oid
+-- 0.2: the sampler and the pruner write, so they are VOLATILE; nothing else is, and nothing runs as
+-- its owner.
+SELECT is((SELECT string_agg(p.proname, ',' ORDER BY p.proname) FROM pg_proc p JOIN pg_depend d ON d.objid = p.oid
             JOIN pg_extension e ON e.oid = d.refobjid AND e.extname = 'pg_limit_runway'
-           WHERE p.provolatile = 'v' OR p.prosecdef), 0,
-          'no function in the extension is VOLATILE or SECURITY DEFINER: it reads, with the caller''s rights');
+           WHERE p.provolatile = 'v' OR p.prosecdef), 'limit_runway_prune,limit_runway_sample',
+          'only the sampler and the pruner are VOLATILE, and none is SECURITY DEFINER: the readers read, '
+          || 'with the caller''s rights');
 
 -- ---------------------------------------------------------------- fixtures
 \o /dev/null
@@ -162,12 +165,20 @@ SELECT is((SELECT count(*)::int FROM (SELECT rank_class, lag(rank_class) OVER ()
           'the view lists every failing-now row before any dated, no-rate or peak row');
 
 -- ---------------------------------------------------------------- grants
-SELECT is((SELECT count(*)::int FROM pg_proc p JOIN pg_depend d ON d.objid = p.oid
+-- Closed by default, with three helpers open on purpose (0.2): limit_runway_findings() calls them with
+-- its caller's rights, so a monitoring role granted the readers must be able to call them, and they
+-- show nothing beyond the caller's own privileges. Asserted below, as the role with no grants.
+SELECT is((SELECT string_agg(p.proname, ',' ORDER BY p.proname) FROM pg_proc p JOIN pg_depend d ON d.objid = p.oid
             JOIN pg_extension e ON e.oid = d.refobjid AND e.extname = 'pg_limit_runway'
-           WHERE has_function_privilege('lr_test_nogrant', p.oid, 'EXECUTE')), 0,
-          'no function is executable by a role with no grants: closed by default');
+           WHERE has_function_privilege('lr_test_nogrant', p.oid, 'EXECUTE')),
+          'limit_runway_project,limit_runway_projection,limit_runway_sequences',
+          'a role with no grants can run only the three helpers: the readers, the sampler and the pruner are closed');
 SET ROLE lr_test_nogrant;
 SELECT throws_ok('SELECT * FROM limit_runway_text()', '42501', NULL, 'a role with no grants is refused');
+SELECT is((SELECT count(*)::int FROM limit_runway_sequences() WHERE NOT readable AND nv IS NOT NULL), 0,
+          'and the open helper gives it no figure for a sequence it cannot read');
+SELECT throws_ok('SELECT * FROM limit_runway_projection(''sequence'', ''x'')', '42501', NULL,
+                 'and no sample: the history is behind its own grant');
 RESET ROLE;
 
 SET ROLE lr_test_monitor;
@@ -175,6 +186,8 @@ SET ROLE lr_test_monitor;
 CREATE TEMP TABLE fm AS SELECT * FROM limit_runway_findings();
 \o
 SELECT lives_ok('SELECT * FROM limit_runway', 'a monitoring role with the INSTALL.md grants reads the view');
+SELECT ok((SELECT detail FROM fm WHERE kind = 'history') LIKE 'rates and projected dates are not established%',
+          'without SELECT on limit_runway_history, rates are one not-established row, not a quiet "no rate yet"');
 SELECT ok((SELECT unknowns[1] FROM fm WHERE object = 'member space') LIKE '%needs superuser%',
           'without superuser, MultiXact member space is not established, and says so');
 SELECT ok((SELECT detail FROM fm WHERE kind = 'sequence' AND object LIKE '% column(s) this role cannot read')
