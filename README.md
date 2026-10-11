@@ -124,9 +124,19 @@ which asserts the extension's finding against its fixture, on 14 and 18. What bu
 - Not in 0.1: MultiXact age per table (`relminmxid`; per database only), and the member-space limit,
   which is "not established" for every role.
 
-### 5. Add history and dates
+### 5. ~~Add history and dates~~ **Done: 0.2, [docs/history.md](docs/history.md)**
 
-Designed, not built: [docs/history.md](docs/history.md), with four open questions.
+Built as `limit_runway_sample()`, `limit_runway_history` and `limit_runway_prune()`, with the
+projection in `limit_runway_findings()`, to the four answers recorded in docs/history.md. Five more
+scenarios, s15 to s19, and `test/02_history.sql`. What building it changed:
+
+- The 7-day and 24-hour windows reach 10% past their length. Cut exactly, a series sampled hourly for
+  a week lost its 7-day point to the second the last tick landed late, and both rates came from the last
+  half day; the disagreement test caught it.
+- A foreign key whose parent sequence the role cannot read was counted as 0 in 0.1, which is "fine". It
+  is now listed as not established, like any other sequence the role cannot read.
+- Columns with no sequence are still not listed as "not watched", which the paragraph below asks for. It
+  is a later item.
 
 `limit_runway_sample()`, a history table, and the projection. Keep the sample cheap: it must not
 `SELECT max(id)` on large tables, which is why columns without a sequence (application-generated

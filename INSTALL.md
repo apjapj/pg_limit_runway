@@ -15,7 +15,7 @@
 ```bash
 git clone https://github.com/apjapj/pg_limit_runway.git
 cd pg_limit_runway
-sudo make install            # copies the control file and pg_limit_runway--0.1.sql
+sudo make install            # copies the control file and the 0.1, 0.2 and 0.1--0.2 scripts
 ```
 
 ```sql
@@ -25,6 +25,35 @@ SELECT * FROM limit_runway_text();
 
 Sequences, foreign keys and partitions are read in the database it is installed in; transaction ids,
 slots, connections and passwords are cluster-wide and appear in every database it is installed in.
+
+From 0.1: `ALTER EXTENSION pg_limit_runway UPDATE TO '0.2';`. It adds the history and replaces
+`limit_runway_findings()` in place, so the grants below survive it.
+
+## Sampling, for dates (0.2)
+
+A projected date needs samples. Schedule the sampler hourly, as a role with the grants in the next
+section plus the two on the history:
+
+```sql
+GRANT SELECT, INSERT ON limit_runway_history TO sampler;
+GRANT EXECUTE ON FUNCTION limit_runway_sample(timestamptz) TO sampler;
+GRANT EXECUTE ON FUNCTION limit_runway_prune(interval)     TO sampler;   -- and DELETE, below
+GRANT DELETE ON limit_runway_history TO sampler;
+
+-- with pg_cron, in the database the extension is installed in:
+SELECT cron.schedule('limit_runway_sample', '0 * * * *', 'SELECT * FROM limit_runway_sample()');
+SELECT cron.schedule('limit_runway_prune',  '30 3 * * *', 'SELECT limit_runway_prune()');
+```
+
+`limit_runway_prune()` keeps 35 days by default: a week for the slope and a month to explain a date.
+Sequences are sampled from 10% used; `SET limit_runway.sample_min_used = 0.05` (or in the role's or
+database's settings) changes that, and a sequence already sampled is always sampled again, so its
+series never loses its start.
+
+The sampler runs with its caller's rights. Without `SELECT` and `INSERT` on the history it refuses and
+names the grant. A sequence the role cannot read is not recorded at all and is counted as not
+established in what it returns, so a series is never pulled down by a role that saw less. A reader
+needs `SELECT` on the history to see rates; without it the view says rates are not established.
 
 ## Grants for a monitoring role
 
@@ -36,6 +65,7 @@ GRANT SELECT ON limit_runway TO monitoring;
 GRANT EXECUTE ON FUNCTION limit_runway_findings(numeric, interval),
                           limit_runway_text(numeric, interval) TO monitoring;
 GRANT pg_read_all_stats TO monitoring;       -- connection counts (pg_monitor includes it)
+GRANT SELECT ON limit_runway_history TO monitoring;   -- rates and projected dates (0.2)
 ```
 
 and, for sequences and partitions, one of:
@@ -54,9 +84,16 @@ What each one is for, and what the role gets without it:
 |---|---|---|
 | `SELECT ON limit_runway` and `EXECUTE` on both functions | PostgreSQL checks a function called inside a view against the role *using* the view, so `SELECT` alone still fails on `limit_runway_findings()` | refused: `permission denied` |
 | `pg_read_all_stats` | to see which sessions are client connections, and whose. Measured on 14 and 18: without it a role sees other sessions with their type, user and database hidden, and would count 0 connections of N | one row, connections "not established", and no counts |
+| `SELECT ON limit_runway_history` (0.2) | rates and projected dates are fitted to the samples | one row, rates "not established", and 0.1's findings otherwise |
 | `SELECT` on sequences | reading a sequence's position (its `last_value` and `is_called`) needs it | one row naming the sequences it cannot read, "not established" |
 | `SELECT` on tables, and `USAGE` on their schema | whether a sequence is behind its data is read from the column's index, and whether a DEFAULT partition holds rows from the partition: both are reads of the table | one row naming those columns, and a note on the partition, "not established" |
 | superuser, or `EXECUTE ON FUNCTION pg_ls_dir(text)` | to count MultiXact member segment files | member space "not established". With it, still "not established" in 0.1, which counts the files but does not compute the limit, so the grant is not worth making for 0.1 |
+
+**Three helpers are open.** `limit_runway_sequences()`, `limit_runway_projection()` and
+`limit_runway_project()` keep the default `EXECUTE` for `PUBLIC`: `limit_runway_findings()` calls them
+with its caller's rights, so a role granted the readers must be able to call them, and an update from
+0.1 must not take that away. They show nothing beyond the caller's own privileges: a sequence it cannot
+read comes back with no figures, and the history is behind its own `SELECT` grant.
 
 **Why not SECURITY DEFINER.** The functions only read. As definer they would show every sequence and
 every session to any role granted EXECUTE, bypassing the privileges above, and the notes telling a role
@@ -72,16 +109,18 @@ Nothing else is needed. `pg_class`, `pg_sequence`, `pg_partitioned_table`, `pg_d
 
 ## What it reads, and what it never does
 
-- **Never writes.** No function is VOLATILE. It names fixes (`SELECT setval(...)` for a sequence behind
-  its data) as text to run by hand, and never runs them.
+- **Reading never writes.** Only `limit_runway_sample()` and `limit_runway_prune()` are VOLATILE, and
+  they write only `limit_runway_history`. The readers name fixes (`SELECT setval(...)` for a sequence
+  behind its data) as text to run by hand, and never run them.
 - **Never waits.** The functions run with `lock_timeout = 1s`; a table or sequence it cannot lock in time becomes
   "not established" rather than a stalled monitor.
 - **Never scans a table.** The reads of table data per sequence are the end entry of an index whose
   leading column is the sequence's column (`ORDER BY col DESC LIMIT 1`, or `ASC` for a descending
   sequence) and one lookup of the next value in that index. With no such index, behind-the-data is "not
   established". The DEFAULT partition check stops at the first row.
-- **No history in 0.1**, so no rate and no projected dates: "no rate yet" is a state, ordered by the share
-  of the limit used. The only dates are fixed ones: a password's expiry and a partition's last bound.
+- **A date only from samples.** Without two samples in one unbroken series that moved, a limit is "no
+  rate yet" or "not moving", ordered by the share used. A sample consumes one transaction id, the
+  INSERT's, and reads no table: measured over 10,000 sequences in s19, in about a second.
 
 ## Uninstall
 
@@ -89,4 +128,5 @@ Nothing else is needed. `pg_class`, `pg_sequence`, `pg_partitioned_table`, `pg_d
 DROP EXTENSION pg_limit_runway;
 ```
 
-Nothing is left behind: 0.1 has no tables.
+It drops `limit_runway_history` and its samples with it. They are registered with `pg_dump`, so a dump
+taken before keeps them.
