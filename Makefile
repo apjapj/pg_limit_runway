@@ -9,6 +9,10 @@ TESTDB ?= postgres
 prove:
 	pg_prove --dbname $(TESTDB) test/*.sql
 lint:
+	# The doc-facts checks, ported from pg_lock_tree's scripts/lint-docs.sh: the version agrees
+	# across control and the newest release and the README header, every SQL file is installed
+	# with no DATA duplicate, local doc paths resolve, and no em-dashes.
+	./scripts/lint-docs.sh
 	./scenarios/check-evidence.sh
 	# Rejects a duplicated mapping key, which PyYAML accepts silently and Forgejo does not.
 	# A workflow with one dispatches no jobs at all and its run reads as a plain failure.

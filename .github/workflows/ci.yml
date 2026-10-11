@@ -10,6 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: ./scripts/check-workflows.sh
+      - run: ./scripts/lint-docs.sh
       - run: ./scenarios/check-evidence.sh
       - run: for s in scenarios/*.sh ci/*.sh scripts/*.sh; do bash -n "$s" || exit 1; done
   scenarios:
