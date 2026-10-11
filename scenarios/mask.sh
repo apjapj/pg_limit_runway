@@ -6,6 +6,10 @@ MASKS=(
   # s9's password expiry, set from now(): a timestamp with fractional seconds is one taken at run time.
   # The fixed partition bounds (2026-03-01 00:00:00+00) have none and pass through.
   's/[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]+\+[0-9]{2}/<run-time timestamp>/g'
+  # 0.2: a projected date is printed to the minute and depends on when the run happened, since the
+  # samples are laid down relative to now(). The run's own dates have no seconds, so this matches only
+  # them; the fixed partition bounds carry seconds and pass through.
+  's/[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}([^:0-9]|$)/<date>\1/g'
 )
 mask_capture() {
     local args=() e

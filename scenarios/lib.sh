@@ -109,3 +109,14 @@ assert_ranked_before() {
     assert_true "the view lists $1 before $2" "$(val "WITH v AS (SELECT object, row_number() OVER () AS n FROM limit_runway)
         SELECT (SELECT n FROM v WHERE object = '$1') < (SELECT n FROM v WHERE object = '$2')")"
 }
+
+# ---------------------------------------------------------------- history (0.2)
+#
+# Samples laid down at chosen instants, relative to one BASE taken once per scenario, so every rate and
+# every date is exact arithmetic on the fixture rather than on how long the script took to run. The
+# sequences are moved for real (inserts, nextval, setval) between samples. $1 an interval before BASE
+# ('2 days'), or '0' for BASE itself; prints how many limits were sampled.
+take_base() { BASE=$(val "SELECT now()::text"); }
+sample_at() {
+    val "SELECT sum(sampled) FROM limit_runway_sample('$BASE'::timestamptz - interval '$1')"
+}

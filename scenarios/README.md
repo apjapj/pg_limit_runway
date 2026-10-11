@@ -36,10 +36,18 @@ images, started with `postgres -c autovacuum_naptime=10s -c log_autovacuum_min_d
 | `s12_sequence_behind_data` | explicit ids loaded, sequence never advanced: the usual check exceeds 100% and the next default id collides | **yes**, found by Piotr: the sequence is *behind* the data, a state to report with its fix, not a projection |
 | `s11_two_limits` | a partition already failing beside an int2 identity with [6](evidence/s11_two_limits.pg18.txt) left | the ordering case for [docs/ranking.md](../docs/ranking.md) |
 | `s13_descending_cycle_and_step` | a descending CYCLE sequence counted [4](evidence/s13_descending_cycle_and_step.pg18.txt) values before the wrap, and 4 inserts then succeeded; a descending sequence by 3 at [2](evidence/s13_descending_cycle_and_step.pg18.txt) above its floor fails on its next call | **yes**, from Piotr's review of 0.1: the count was right for the cycling case and wrong for any step other than 1, which 0.1 now counts in calls |
+| `s14_sequence_at_its_own_limit` | a sequence at its own MAXVALUE or MINVALUE has no next value, so the exhausted sentence names none | from Piotr's review of 0.1 |
+| `s15_sampled_rate` | 0.2: three samples a day apart with 100 real inserts between: [100](evidence/s15_sampled_rate.pg18.txt) calls a day, 650 left, six and a half days, ranked after a password three days out | the first projected date: dates share one timeline |
+| `s16_series_restart` | 0.2: a sequence restored backwards starts a new epoch, and the rate is the [50](evidence/s16_series_restart.pg18.txt) a day since, never a slope across the reset; a raised MAXVALUE starts one too | the rule rate.md asked for |
+| `s17_rates_disagree` | 0.2: [16.43](evidence/s17_rates_disagree.pg18.txt) a day over the week, 100 over the last half day: both rates and both dates, ranked by the sooner | **yes**: it caught the 7-day window losing its anchor to the last tick's lateness, now 10% wide |
+| `s18_sampler_rights` | 0.2: no grant on the history, the sampler refuses and names it; a sequence it cannot read is counted as not established and recorded as nothing | the caller's rights, as Piotr decided |
+| `s19_sampler_cost` | 0.2: one sample over 10,000 sequences records the [100](evidence/s19_sampler_cost.pg18.txt) past 10% and consumes exactly one xid | the budget docs/history.md asked to be measured first |
 
 **PostgreSQL 14 and 18 agree on every scenario except s10**, where `reserved_connections` exists on 18
 only and 14 says so. **Reproducible**: two consecutive runs on each version gave byte-identical evidence
-for all 24 files (now 26, with s13) with no masking at all, because the scenarios print facts and booleans rather than ids,
+for all 24 files (now 38, with s13 to s19) with no masking at all, because the scenarios print facts and booleans rather than ids,
 pids or timestamps. The extension's findings added one: s9's password expiry is set from `now()`, so
 `mask.sh` replaces a run-time timestamp (one with fractional seconds) with `<run-time timestamp>`; s5
-prints only its PASS lines, since its xid ages vary between runs.
+prints only its PASS lines, since its xid ages vary between runs. 0.2 adds a second rule: a projected date, printed to the minute, depends on
+when the run happened, since samples are laid down relative to `now()`, so `mask.sh` replaces a date
+with minutes and no seconds with `<date>`; the exact figures are asserted in SQL instead.
