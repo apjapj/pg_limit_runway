@@ -3,9 +3,8 @@
 **What will break next.** Every hard limit in the database, and the date each one is reached.
 
 Part of [pg_incident_watch](https://github.com/apjapj/pg_incident_watch). Pure SQL, `CREATE EXTENSION pg_limit_runway`, no
-restart, no `shared_preload_libraries`. Status on 2026-10-10: **0.1 built**, current state only (no
-history, so no dates yet), tested on PostgreSQL 14 and 18; not tagged. Install and grants:
-[INSTALL.md](INSTALL.md). Source: `pg_incident_watch-overview.md.pdf`, Draft v0.1.
+restart, no `shared_preload_libraries`. Status: **0.2**, tagged `v0.2.0`, with history and projected
+dates, tested on PostgreSQL 14 and 18. Install and grants: [INSTALL.md](INSTALL.md).
 
 ## Overview
 
