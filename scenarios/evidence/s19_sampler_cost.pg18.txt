@@ -4,8 +4,8 @@ one sample over 10,000 sequences
 
 checks
  PASS the 100 past 10% are sampled and the other 9,900 are not
- PASS one sample consumed exactly one transaction id, the INSERT's
+ PASS one sample consumed a handful of transaction ids, the sampler's INSERT and any concurrent backend's, not one per sequence
  PASS and took under 30 seconds over 10,000 sequences
 
 expected finding
- 100 sampled, 9,900 below the threshold, one xid consumed, and well under the bound.
+ 100 sampled, 9,900 below the threshold, O(1) xids consumed, and well under the bound.

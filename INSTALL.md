@@ -15,7 +15,7 @@
 ```bash
 git clone https://github.com/apjapj/pg_limit_runway.git
 cd pg_limit_runway
-sudo make install            # copies the control file and the 0.1, 0.2 and 0.1--0.2 scripts
+sudo make install            # copies the control file and the 0.1, 0.2, 0.2.1, 0.1--0.2 and 0.2--0.2.1 scripts
 ```
 
 ```sql
