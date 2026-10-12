@@ -5,7 +5,9 @@
 Part of [pg_incident_watch](https://github.com/apjapj/pg_incident_watch). Pure SQL, `CREATE EXTENSION pg_limit_runway`, no
 restart, no `shared_preload_libraries`. Status: **0.2.1**, tagged `v0.2.1`, with history and projected
 dates, tested on PostgreSQL 14 and 18. 0.2.1 changes no SQL over 0.2: it carries the corrected status
-line and the doc-facts lint. Install and grants: [INSTALL.md](INSTALL.md).
+line and the doc-facts lint. Install and grants: [INSTALL.md](INSTALL.md). What changed in each
+release: [CHANGELOG.md](CHANGELOG.md). Changing it or releasing it:
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Overview
 
