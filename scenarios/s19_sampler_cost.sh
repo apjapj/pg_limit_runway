@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # s19 (0.2): what a sample costs, measured before 0.2 ships (docs/history.md).
-#   10,000 sequences, 100 of them past the 10% threshold. The sampler must read every one, record only
-#   the 100, and consume O(1) transaction ids per call rather than O(n): the sampler's own INSERT is
-#   the one it must take (s5: reading the current xid through the snapshot assigns none). The claim is
-#   deliberately a bound, not exactly one: the counter is the server-wide xmax, so a concurrent
-#   autovacuum or any other backend can take an xid between the two reads. An O(n) implementation
-#   would show ~10,000; a bound of a few still distinguishes O(1) from O(n) with a huge margin, and
-#   does not fail at random when the server is busy. The time is recorded in out/, not in the
+#   10,000 sequences, 100 of them past the 10% threshold. The sampler must read every one, record
+#   only the 100, and take O(1) transaction ids per call rather than O(n). The measurement is the
+#   server-wide xmax across the sample (s5: reading the current xid through the snapshot assigns
+#   none), so it is an upper bound on what the sampler itself consumed, not an isolation of it: a
+#   concurrent autovacuum or any other backend can also take an xid between the two reads. That is
+#   why the claim is a bound and not a number. An O(n) implementation would show ~10,000, so a
+#   bound of a few still separates O(1) from O(n) with a wide margin, and does not fail at random
+#   when the server is busy. The time is recorded in out/, not in the
 #   evidence, because it varies; the evidence keeps the bound it was checked against.
 . "$(dirname "$0")/lib.sh"
 setup_schema
