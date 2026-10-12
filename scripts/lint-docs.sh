@@ -80,6 +80,31 @@ else
   fi
 fi
 
+step "the release state the documents claim"
+
+# A document can state the release state wrongly while every version number in it is
+# right. This SECURITY.md said "main (0.1, not yet tagged)" and "There is no released
+# version yet" while the extension was at 0.2.1 with two tags cut and released. The
+# version number it gave was wrong too, and both faults passed every check above,
+# because those checks read the version token and never the sentence around it.
+CLAIM_DOCS="README.md INSTALL.md SECURITY.md CONTRIBUTING.md CHANGELOG.md docs/*.md scenarios/README.md"
+tagcount=$(git tag 2>/dev/null | grep -c '^v' || true)
+if [ "${tagcount:-0}" -eq 0 ]; then
+    ok "no release tags here, so no document can claim otherwise"
+else
+    stale=""
+    for f in $CLAIM_DOCS; do
+        [ -f "$f" ] || continue
+        grep -qiE 'not yet tagged|there is no released version yet' "$f" 2>/dev/null \
+            && stale="$stale $f"
+    done
+    if [ -z "$stale" ]; then
+        ok "no document claims an untagged or unreleased extension, and $tagcount tag(s) exist"
+    else
+        bad "these say the release is untagged or does not exist, but $tagcount tag(s) do:$stale"
+    fi
+fi
+
 # Every release and update script must be installed: either listed literally in DATA, or
 # covered by a wildcard in the Makefile. pg_lock_tree installs update paths via a UPGRADES
 # wildcard; runway lists them in DATA. Both are correct, so both are accepted.

@@ -2,12 +2,13 @@
 
 ## Supported versions
 
-| Version | Supported |
-|---|---|
-| `main` (0.1, not yet tagged) | **yes** |
+| Version | Supported | Why |
+|---|---|---|
+| 0.2.1 | **yes** | the current release, tagged `v0.2.1` |
+| 0.2 | yes, by updating | `ALTER EXTENSION pg_limit_runway UPDATE TO '0.2.1'`; 0.2.1 changes no SQL over 0.2 |
+| 0.1 | yes, by updating, and it was never tagged | the update path from 0.1 ships, but there is no public 0.1 to install from and no history, so no dates |
 
-There is no released version yet. Fixes are made on `main`; once versions are released, the newest
-is supported and released tags are not edited.
+Fixes are made on `main` and released as a new version. Released tags are not edited.
 
 ## Reporting a vulnerability
 
