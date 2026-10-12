@@ -1,5 +1,8 @@
 # pg_limit_runway
 
+[![CI](https://github.com/apjapj/pg_limit_runway/actions/workflows/ci.yml/badge.svg)](https://github.com/apjapj/pg_limit_runway/actions/workflows/ci.yml)
+[![Licence: PostgreSQL](https://img.shields.io/badge/licence-PostgreSQL-blue.svg)](LICENSE)
+
 **What will break next.** Every hard limit in the database, and the date each one is reached.
 
 Part of [pg_incident_watch](https://github.com/apjapj/pg_incident_watch). Pure SQL, `CREATE EXTENSION pg_limit_runway`, no
