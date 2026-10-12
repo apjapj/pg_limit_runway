@@ -184,6 +184,36 @@ for f in $DOCS_ALL; do
   done
 done
 
+# A count written in prose is a claim like any other. pg_bloat_cause shipped "13 scenarios" in
+# three documents at once, all of them wrong, because `ls scenarios/s*.sh | wc -l` counts the
+# standby helpers alongside the scenarios. The number below is taken the way run.sh takes it, so
+# a helper added later cannot quietly change what a document says.
+step "every scenario count in prose is the count run.sh will actually run"
+if [ -d scenarios ]; then
+  scen_count=$(ls scenarios/s[0-9]*_*.sh 2>/dev/null | wc -l | tr -d ' ')
+  # Reported per file and per line, because a bare list of wrong numbers is not enough to act on.
+  # grep -n prefixes the LINE NUMBER, not the claimed number, so the number is taken from the
+  # matched text itself: the first integer on the line that is followed by "scenarios".
+  scen_bad=""
+  for f in $DOCS_ALL; do
+    [ -f "$f" ] || continue
+    while IFS= read -r hit; do
+      [ -n "$hit" ] || continue
+      ln=${hit%%:*}
+      claim_n=$(printf '%s\n' "$hit" | grep -oE '[0-9]+ scenarios' | grep -oE '^[0-9]+' | head -1)
+      [ -n "$claim_n" ] || continue
+      [ "$claim_n" = "$scen_count" ] || scen_bad="$scen_bad $f:$ln($claim_n)"
+    done < <(grep -nE '\b[0-9]+ scenarios\b' "$f" 2>/dev/null)
+  done
+  if [ -z "$scen_bad" ]; then
+    ok "every scenario count in prose is $scen_count, which is what run.sh selects"
+  else
+    bad "run.sh selects $scen_count scenarios, but the docs claim a different number at:$scen_bad (counting 'ls scenarios/s*.sh' also matches any helper whose name starts with s)"
+  fi
+else
+  ok "no scenarios/ directory, so there is no scenario count to check"
+fi
+
 step "house style"
 # No em-dashes or en-dashes in any document. The house rule, and the one a reader's eye
 # catches before anything else.
