@@ -1,0 +1,12 @@
+-- pg_limit_runway 0.2 -> 0.2.1: no SQL changes
+--
+-- 0.2.1 is a documentation and tooling release. Every object it installs is byte-identical to
+-- 0.2's, so this update path has nothing to do and says so. The two changes it carries are the
+-- corrected README banner and the ported doc-facts lint (scripts/lint-docs.sh), neither of which
+-- is a database object.
+--
+-- The path exists, and is this comment, so that ALTER EXTENSION ... UPDATE TO '0.2.1' is valid for
+-- anyone already on 0.2 and lands them on the tagged release. An empty script is the honest
+-- representation of a release that changes nothing, and it is what pg_lock_tree's 1.1.13 to 1.1.14
+-- did for the same reason.
+\echo Use "ALTER EXTENSION pg_limit_runway UPDATE TO '0.2.1'" to load this file. \quit
