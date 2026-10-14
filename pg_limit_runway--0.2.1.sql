@@ -79,7 +79,12 @@ RETURNS TABLE (
   nleft       numeric,
   total       numeric,
   wraps       boolean,
-  frac        numeric
+  frac        numeric,
+  -- The column whose DEFAULT calls nextval() on this sequence, when no dependency ties the two
+  -- together. Non-null only in that case, because a DEFAULT is not a link: see the detection
+  -- join below, and docs/rate.md.
+  dflt_object text,
+  dflt_coltype text
 )
 LANGUAGE plpgsql STABLE
 SET lock_timeout = '1s'
@@ -97,7 +102,8 @@ BEGIN
            tn.nspname AS q_tbl_schema, t.relname AS q_tbl_name, t.oid AS q_tbl_oid,
            a.attname AS q_attname, a.attnum AS q_attnum, a.atttypid AS q_atttypid,
            format_type(a.atttypid, a.atttypmod) AS q_coltype,
-           has_sequence_privilege(s.oid, 'SELECT') AS q_can_read
+           has_sequence_privilege(s.oid, 'SELECT') AS q_can_read,
+           dl.d_object AS q_d_object, dl.d_coltype AS q_d_coltype
       FROM pg_class s
       JOIN pg_namespace sn  ON sn.oid = s.relnamespace
       JOIN pg_sequence sq   ON sq.seqrelid = s.oid
@@ -106,6 +112,26 @@ BEGIN
       LEFT JOIN pg_class t       ON t.oid = d.refobjid
       LEFT JOIN pg_namespace tn  ON tn.oid = t.relnamespace
       LEFT JOIN pg_attribute a   ON a.attrelid = t.oid AND a.attnum = d.refobjsubid
+     -- A column DEFAULT nextval() is NOT a dependency, so a sequence wired that way has no
+     -- pg_depend row and its column is invisible above. This finds that column so the finding can
+     -- say the limit is unknown, rather than print the sequence's own MAXVALUE as if it were the
+     -- limit. It cannot raise on a default it does not recognise: the regclass is cast only after
+     -- the pattern matched, inside a subquery, so anything else yields no row.
+     LEFT JOIN LATERAL (
+       SELECT format('%I.%I.%I', dn.nspname, dc.relname, da.attname) AS d_object,
+              format_type(da.atttypid, NULL) AS d_coltype
+         FROM pg_attrdef ad
+         JOIN pg_class     dc ON dc.oid = ad.adrelid
+         JOIN pg_namespace dn ON dn.oid = dc.relnamespace
+         JOIN pg_attribute da ON da.attrelid = ad.adrelid AND da.attnum = ad.adnum
+        WHERE da.atttypid IN ('int2'::regtype, 'int4'::regtype, 'int8'::regtype)
+          AND (SELECT (regexp_match(pg_get_expr(ad.adbin, ad.adrelid),
+                                    '^nextval\(''(.+?)''::regclass\)$'))[1]) IS NOT NULL
+          AND (SELECT (regexp_match(pg_get_expr(ad.adbin, ad.adrelid),
+                                    '^nextval\(''(.+?)''::regclass\)$'))[1])::regclass = s.oid
+        ORDER BY dn.nspname, dc.relname, da.attnum
+        LIMIT 1
+     ) dl ON true
      WHERE s.relkind = 'S' AND sn.nspname NOT IN ('pg_catalog', 'information_schema')
        AND NOT pg_is_other_temp_schema(sn.oid)
      ORDER BY sn.nspname, s.relname   -- so the names listed in a not-established row are the same each call
@@ -113,6 +139,10 @@ BEGIN
     seq_schema := q.q_seq_schema; seq_name := q.q_seq_name; inc := q.q_inc; seqmax := q.q_seqmax;
     seqmin := q.q_seqmin; seqcycle := q.q_seqcycle; tbl_schema := q.q_tbl_schema; tbl_name := q.q_tbl_name;
     tbl_oid := q.q_tbl_oid; attname := q.q_attname; attnum := q.q_attnum; coltype := q.q_coltype;
+    -- Only meaningful when there is no dependency: if a column owns the sequence, the dependency
+    -- is the answer and a default pointing elsewhere would be noise.
+    dflt_object  := CASE WHEN q.q_attname IS NULL THEN q.q_d_object  END;
+    dflt_coltype := CASE WHEN q.q_attname IS NULL THEN q.q_d_coltype END;
     colmax := CASE q.q_atttypid WHEN 'int2'::regtype THEN 32767 WHEN 'int4'::regtype THEN 2147483647
                                 WHEN 'int8'::regtype THEN 9223372036854775807 END;
     colmin := CASE q.q_atttypid WHEN 'int2'::regtype THEN -32768 WHEN 'int4'::regtype THEN -2147483648
@@ -375,6 +405,17 @@ BEGIN
       ELSE
         un := un || format('whether the sequence is behind the data is not established: no btree index leads with %I, and the table is not scanned', r.attname);
       END IF;
+    END IF;
+
+    -- A column DEFAULT nextval() is not a dependency, so a sequence wired that way has no column for
+    -- this extension to read, and eff below is the sequence's own MAXVALUE rather than the column's.
+    -- Said as an unknown rather than left as a number that reads like an answer, because the column's
+    -- limit is the real one and it is lower: an int4 column next to a bigint sequence runs out at
+    -- 2147483647, and the sequence's own ceiling is far above that. Found by testing the shape, after
+    -- documenting the standalone case and nearly concluding there was no gap (docs/rate.md).
+    IF r.dflt_object IS NOT NULL AND r.coltype IS NULL THEN
+      un := un || format('the limit shown is the sequence''s own MAXVALUE, not %s''s: that column calls nextval() on this sequence by DEFAULT, and a DEFAULT is not a dependency, so the column limit cannot be read. ALTER SEQUENCE %I.%I OWNED BY %s; makes it visible',
+                         r.dflt_coltype, r.seq_schema, r.seq_name, r.dflt_object);
     END IF;
 
     current_value := cur; limit_value := eff; until_date := NULL; "then" := th; unknowns := un;
