@@ -32,11 +32,24 @@ note "sequences sampled / below the threshold: $res"
 
 say "checks"
 assert_true "the 100 past 10% are sampled and the other 9,900 are not" "$([ "$res" = "100/9900" ] && echo t || echo f)"
-# A small bound, not exactly 1: concurrent backends (autovacuum most likely) can take an xid between
-# the two reads. The sampler's own cost is one INSERT, and an O(n) sampler would be ~10,000, so a
-# bound of 5 keeps the O(1)-not-O(n) claim with a wide margin and does not flake on a busy server.
-assert_true "one sample consumed a handful of transaction ids, the sampler's INSERT and any concurrent backend's, not one per sequence" \
-  "$(awk "BEGIN { print ($xdiff >= 1 && $xdiff <= 5) ? \"t\" : \"f\" }")"
+# A bound, not exactly 1, and the bound is generous on purpose. The two reads are of a server-wide
+# counter, so the figure includes every other backend that took an xid in between, and this fixture
+# creates 10,000 sequences, which wakes autovacuum: a bound of 5 was too tight and failed in CI on a
+# run whose assertions were all passing. The number is now large enough to survive that and still say
+# what this scenario exists to say, because an O(n) sampler would consume roughly 10,000, one per
+# sequence, which is an order of magnitude above this bound rather than a few counts above it.
+#
+# The observed value is written to out/, NOT to the evidence, for the same reason the time is: it
+# varies run to run. It is there so that a future failure of this assertion can be read rather than
+# guessed at, which is what the first failure cost.
+BOUND=1000
+echo "xids consumed across one sample (server-wide, so others count too): $xdiff" \
+    > "$(dirname "$0")/out/s19_xid_cost.txt"
+# The number is deliberately NOT in the message: assert_true's text goes into the evidence, and the
+# figure varies run to run, which is the same reason the time is kept out of it. It was in the first
+# draft of this change and would have made the evidence differ on every run.
+assert_true "one sample consumed a bounded number of transaction ids, not one per sequence" \
+  "$(awk "BEGIN { print ($xdiff >= 1 && $xdiff <= $BOUND) ? \"t\" : \"f\" }")"
 assert_true "and took under 30 seconds over 10,000 sequences" "$(awk "BEGIN { print ($secs < 30) ? \"t\" : \"f\" }")"
 say "expected finding"
 note "100 sampled, 9,900 below the threshold, O(1) xids consumed, and well under the bound."
