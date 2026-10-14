@@ -13,6 +13,9 @@ lint:
 	# across control and the newest release and the README header, every SQL file is installed
 	# with no DATA duplicate, local doc paths resolve, and no em-dashes.
 	./scripts/lint-docs.sh
+	# Every catalog a README feature table names is one the release script reads. Four wrong
+	# claims of that kind were found by hand, and a manual pass is forgotten.
+	./scripts/check-evidence-claims.sh
 	./scenarios/check-evidence.sh
 	# Rejects a duplicated mapping key, which PyYAML accepts silently and Forgejo does not.
 	# A workflow with one dispatches no jobs at all and its run reads as a plain failure.
