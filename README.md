@@ -25,7 +25,7 @@ limit and reports when each will be reached, soonest first.
 | **`int4` / `int2` sequences and identity columns** | `nextval()` fails, or the value no longer fits the column | `pg_sequence`, the sequence's own `last_value`/`is_called`, `pg_attribute`, `pg_depend` (to tie a sequence to its column) |
 | **`int4` foreign keys pointing at widened keys** | The parent is `bigint`, the child column is still `int4`, and inserts fail once the parent passes 2^31 | `pg_constraint` (`conkey`, `confkey`) joined to both columns' types |
 | **Transaction ID wraparound** | The server refuses new XIDs | `age(datfrozenxid)`, `age(relfrozenxid)` per table |
-| **MultiXact wraparound** | The same, for MultiXact IDs, and also MultiXact member space | `mxid_age(datminmxid)`, `mxid_age(relminmxid)` |
+| **MultiXact wraparound** | The same, for MultiXact IDs, and also MultiXact member space | `mxid_age(datminmxid)`, database level. `relminmxid` is per table and is not read: the limit is the database's, so there is no per-table MultiXact finding |
 | **Time-range partitions** | Inserts beyond the last partition fail, or land in DEFAULT | `pg_partitioned_table`, `pg_inherits`, `pg_get_expr(relpartbound, ...)` |
 | **Replication slots near invalidation** | The slot is invalidated and its consumer must be rebuilt | `pg_replication_slots.wal_status`, `safe_wal_size`, `max_slot_wal_keep_size` |
 | **Connection headroom** | New connections are refused | `max_connections`, `superuser_reserved_connections`, `reserved_connections` (PG 16+), per-role `rolconnlimit`, per-database `datconnlimit`, `pg_stat_activity` |
