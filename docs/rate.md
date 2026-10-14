@@ -22,7 +22,17 @@ from the sequence itself, since `pg_sequences` hides the position until the firs
 sequence feeding an int4 column, at [0.000000](../scenarios/evidence/s1_serial_bigint_seq.pg18.txt)% by the usual check
 and already failing), or the sequence's own `MAXVALUE` where that is lower
 (s3: [1000](../scenarios/evidence/s3_negative_maxvalue_cycle.pg18.txt) on a bigint column), or `min_value` for a
-descending sequence. Two things the scenarios showed that change how the rate is read:
+descending sequence.
+
+**A sequence that is not owned by a column is still reported, and its own `MAXVALUE` is then the
+whole limit.** An `OWNED BY`, or the identity column that creates one implicitly, is the only thing
+that ties a sequence to a column, and without it there is no column type to be the limit. The
+sequence is not skipped: it appears with the table and column fields empty and the limit taken from
+its own bounds. Measured on 18, three sequences side by side. The `bigserial` on a `bigint` column reported `colmax`
+9223372036854775807 and the same effective limit. A `bigint` sequence owned by an `int4` column
+reported `colmax` 2147483647 and an effective limit of 2147483647, the column winning over the
+sequence's own much larger `MAXVALUE`, which is the rule above. A bare `CREATE SEQUENCE standalone
+MAXVALUE 100` reported an empty `coltype` and `colmax` and an effective limit of 100. Two things the scenarios showed that change how the rate is read:
 - **a failed insert still consumes a value.** In s1 the sequence stood at
   [2147483648](../scenarios/evidence/s1_serial_bigint_seq.pg18.txt) after the insert that overflowed, past the column's
   maximum, so "values left" was [-1](../scenarios/evidence/s1_serial_bigint_seq.pg18.txt). The rate counts attempts, not
