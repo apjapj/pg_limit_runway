@@ -24,11 +24,42 @@ and already failing), or the sequence's own `MAXVALUE` where that is lower
 (s3: [1000](../scenarios/evidence/s3_negative_maxvalue_cycle.pg18.txt) on a bigint column), or `min_value` for a
 descending sequence.
 
-**A sequence that is not owned by a column is still reported, and its own `MAXVALUE` is then the
-whole limit.** An `OWNED BY`, or the identity column that creates one implicitly, is the only thing
-that ties a sequence to a column, and without it there is no column type to be the limit. The
-sequence is not skipped: it appears with the table and column fields empty and the limit taken from
-its own bounds. Measured on 18, three sequences side by side. The `bigserial` on a `bigint` column reported `colmax`
+**A sequence is tied to a column by `OWNED BY`, and by nothing else. A column `DEFAULT` is not a
+link.** This is the one thing in this document that can produce a limit which is too permissive
+rather than missing, so it is worth reading twice.
+
+`ALTER SEQUENCE ... OWNED BY table.column`, and the identity column that creates the same dependency
+implicitly, are what put a row in `pg_depend` with `deptype` `a` or `i`. That dependency is the only
+thing this extension follows. A sequence wired up as a column default and nothing more:
+
+```sql
+CREATE SEQUENCE def_seq;                                     -- no OWNED BY
+CREATE TABLE def_t (id int4 DEFAULT nextval('def_seq'));     -- a default, not a dependency
+ALTER SEQUENCE def_seq MAXVALUE 3000000000;
+```
+
+has **no** `pg_depend` row, so there is no column for this extension to read. Measured on 18 with
+that fixture: `tbl_name` and `attname` are empty, `coltype` and `colmax` are NULL, and the effective
+limit reported is `3000000000`, the sequence's own `MAXVALUE`.
+
+**That number is wrong in the dangerous direction.** The real limit is the `int4` column's
+`2147483647`, and the next `INSERT` fails there. A caller reading `3000000000` is told the sequence
+has room it does not have. Nothing here is misleading about a sequence with no column at all: with no
+column there is nothing for the limit to be. The trap is the sequence that does feed a column, which
+is exactly why someone created it, and whose column is invisible to this extension.
+
+So: **if a sequence fills a column, give it `OWNED BY`.** That is also what makes the sequence
+dropped with the table, and what lets this extension report the column's limit rather than the
+sequence's. One statement, and it is the difference between a projection that can fire and one that
+cannot:
+
+```sql
+ALTER SEQUENCE def_seq OWNED BY def_t.id;
+```
+
+After that the same fixture reports `coltype` `integer`, `colmax` 2147483647, and an effective limit
+of 2147483647, the column winning over the sequence's larger `MAXVALUE`, which is the rule at the top
+of this section. Measured on 18, three sequences side by side. The `bigserial` on a `bigint` column reported `colmax`
 9223372036854775807 and the same effective limit. A `bigint` sequence owned by an `int4` column
 reported `colmax` 2147483647 and an effective limit of 2147483647, the column winning over the
 sequence's own much larger `MAXVALUE`, which is the rule above. A bare `CREATE SEQUENCE standalone

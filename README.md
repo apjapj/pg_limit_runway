@@ -22,7 +22,7 @@ limit and reports when each will be reached, soonest first.
 
 | Limit | What "runs out" means | Where the evidence is |
 |---|---|---|
-| **`int4` / `int2` sequences and identity columns** | `nextval()` fails, or the value no longer fits the column | `pg_sequence`, the sequence's own `last_value`/`is_called`, `pg_attribute`, `pg_depend` (to tie a sequence to its column) |
+| **`int4` / `int2` sequences and identity columns** | `nextval()` fails, or the value no longer fits the column | `pg_sequence`, the sequence's own `last_value`/`is_called`, `pg_attribute`, `pg_depend` (to tie a sequence to its column). A sequence is tied to a column by `ALTER SEQUENCE ... OWNED BY` and **not** by a column `DEFAULT`: without it there is no dependency, the column's limit is invisible, and the sequence is measured against its own `MAXVALUE`, which reports room the next insert does not have. See [docs/rate.md](docs/rate.md) |
 | **`int4` foreign keys pointing at widened keys** | The parent is `bigint`, the child column is still `int4`, and inserts fail once the parent passes 2^31 | `pg_constraint` (`conkey`, `confkey`) joined to both columns' types |
 | **Transaction ID wraparound** | The server refuses new XIDs | `age(datfrozenxid)`, `age(relfrozenxid)` per table |
 | **MultiXact wraparound** | The same, for MultiXact IDs, and also MultiXact member space | `mxid_age(datminmxid)`, database level. `relminmxid` is per table and is not read: the limit is the database's, so there is no per-table MultiXact finding |
