@@ -3,6 +3,23 @@
 Versions are listed newest first. Released tags are never edited: a change that needs
 a new entry gets a new version.
 
+## 0.2.2 (2026-10-14)
+
+A correction with a consequence. A sequence that a column fills by `DEFAULT` and not by
+`OWNED BY` has no `pg_depend` row, so this extension could not read the column, and it
+reported the sequence's own `MAXVALUE` as the effective limit. For an `int4` column beside a
+`bigint` sequence that number is too permissive: the column runs out at 2147483647 and the
+sequence's ceiling is far above it, so the finding said there was room the next insert did
+not have.
+
+- `limit_runway_sequences()` returns two new columns, `dflt_object` and `dflt_coltype`: the
+  column whose `DEFAULT` calls `nextval()` on this sequence, and its type, populated only
+  when no dependency ties the two together.
+- `limit_runway_findings()` adds an unknown for that shape, naming the column and the fix:
+  `ALTER SEQUENCE ... OWNED BY ...`.
+- The update path drops and recreates `limit_runway_sequences()`, because a `RETURNS TABLE`
+  function's row type is part of its signature and cannot be changed by `CREATE OR REPLACE`.
+
 ## 0.2.1 (2026-10-12)
 
 **No SQL changed over 0.2.** The tag exists so the tag matches the tree: 0.2.1 carries a
