@@ -115,8 +115,8 @@ BEGIN
      -- A column DEFAULT nextval() is NOT a dependency, so a sequence wired that way has no
      -- pg_depend row and its column is invisible above. This finds that column so the finding can
      -- say the limit is unknown, rather than print the sequence's own MAXVALUE as if it were the
-     -- limit. It cannot raise on a default it does not recognise: the regclass is cast only after
-     -- the pattern matched, inside a subquery, so anything else yields no row.
+      -- limit. It cannot raise: nothing here resolves a name on the caller's behalf, and the
+      -- condition below says why that matters (s18 caught the first version doing it).
      LEFT JOIN LATERAL (
        SELECT format('%I.%I.%I', dn.nspname, dc.relname, da.attname) AS d_object,
               format_type(da.atttypid, NULL) AS d_coltype
@@ -125,10 +125,13 @@ BEGIN
          JOIN pg_namespace dn ON dn.oid = dc.relnamespace
          JOIN pg_attribute da ON da.attrelid = ad.adrelid AND da.attnum = ad.adnum
         WHERE da.atttypid IN ('int2'::regtype, 'int4'::regtype, 'int8'::regtype)
-          AND (SELECT (regexp_match(pg_get_expr(ad.adbin, ad.adrelid),
-                                    '^nextval\(''(.+?)''::regclass\)$'))[1]) IS NOT NULL
-          AND (SELECT (regexp_match(pg_get_expr(ad.adbin, ad.adrelid),
-                                    '^nextval\(''(.+?)''::regclass\)$'))[1])::regclass = s.oid
+          -- Two DE-PARSED strings compared, NOT a ::regclass cast on the stored default. That cast resolves
+          -- a name, and resolving a name checks the caller's privileges: for a role without USAGE on the
+          -- sequence's schema it raised "permission denied for schema" and took the whole function down.
+          -- s18 asserts that a role without grants gets "not established" rather than an error, and it
+          -- caught exactly that. Both sides here are deparsed under the same search_path, so they agree
+          -- about qualification.
+          AND pg_get_expr(ad.adbin, ad.adrelid) = format('nextval(%L::regclass)', s.oid::regclass::text)
         ORDER BY dn.nspname, dc.relname, da.attnum
         LIMIT 1
      ) dl ON true
