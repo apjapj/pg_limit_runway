@@ -80,6 +80,9 @@ As pg_lock_tree did with `scenarios/`: build each case for real. The traps worth
 
 1. **`serial` on PG 9.x-era schemas**: the sequence is `bigint`, the column is `int4`. The limit is
    the column's, not the sequence's. Resolve the column through `pg_depend`.
+   **A sequence with no owning column** has no column to resolve. It is not skipped: it is reported
+   with an empty table and column and its own `MAXVALUE` as the whole limit, so an `OWNED BY` is what
+   decides whether a sequence is tied to a table at all. See [docs/rate.md](docs/rate.md).
 2. **`int2` identity and sequences**, which run out first.
 3. **Sequences with a negative increment, or a custom `MAXVALUE`/`CYCLE`.** `CYCLE` does not fail,
    it wraps and collides with existing keys; report it as a different finding.
