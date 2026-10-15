@@ -39,7 +39,8 @@ limit and reports when each will be reached, soonest first.
   is the honest fix for a sequence and also a full table rewrite under `ACCESS EXCLUSIVE`, so the
   command row must say so; `VACUUM (FREEZE)` on the oldest tables for wraparound; `CREATE TABLE ...
   PARTITION OF` with the next range; `ALTER ROLE ... VALID UNTIL` for a password, with the date and
-  never a password.
+  never a password. The exact statement for each kind, and its note, are settled in
+  [docs/act.md](docs/act.md).
 - **Detect**: `NOTIFY` on the `limit_runway` channel when a limit crosses into a configured window
   (for example "within 30 days"), again when the window halves, and when it clears, in the shared
   payload format.

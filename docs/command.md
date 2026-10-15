@@ -38,7 +38,8 @@ limit_runway_notify_resolved(
 
 `limit_runway_command()` is the Act stage, and it is shaped like `pg_lock_tree`'s
 `lock_tree_command()`: one runnable statement per finding, for pasting or for
-`SELECT command FROM limit_runway_command() \gexec`. The `tier` column is new to this tool.
+`SELECT command FROM limit_runway_command() \gexec`. The `tier` column is new to this tool. The exact
+statement for each limit kind is settled in [docs/act.md](act.md).
 
 The two notify functions are the Detect stage. They keep state in a `limit_runway_alert` table, one
 row per subject per channel, exactly as `pg_lock_tree`'s `lock_tree_alert` holds high-water marks.
