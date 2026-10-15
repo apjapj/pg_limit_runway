@@ -1,0 +1,27 @@
+
+samples: on, on, set back, on
+ object | day | position | limit_value | epoch
+ lr_scen.s16_items.id | -3.0000000000000000 | 200 | 1000 | 0
+ lr_scen.s16_items.id | -2.0000000000000000 | 300 | 1000 | 0
+ lr_scen.s16_items.id | -1.00000000000000000000 | 100 | 1000 | 1
+ lr_scen.s16_items.id | 0.000000000000000000000000 | 150 | 1000 | 1
+ lr_scen.s16_wide.id | -3.0000000000000000 | 500 | 1000 | 0
+ lr_scen.s16_wide.id | -2.0000000000000000 | 600 | 1000 | 0
+ lr_scen.s16_wide.id | -1.00000000000000000000 | 600 | 2000 | 1
+ lr_scen.s16_wide.id | 0.000000000000000000000000 | 600 | 2000 | 1
+(8 rows)
+
+
+what pg_limit_runway says
+ [date] sequence lr_scen.s16_items.id: 850 of 1000 values left (integer, ascending); at 50 per day, from 2 samples over 1 day, it runs out about <date>; the rate is from samples since <date>, when the series restarted. Then: the limit is the sequence's MAXVALUE 1000, not the column's integer; the rate counts calls of nextval(), failed inserts included, so the real date can come sooner: an error band this tool cannot narrow.
+
+checks
+ PASS the restore starts a new epoch: 0, 0, 1, 1
+ PASS the rate is the 50 a day since the restore, from its two samples
+ PASS a slope across the restore would have been negative: 300 to 150 in two days
+ PASS a changed limit starts a new epoch too
+ PASS finding for lr_scen.s16_items.id: projected (class 2), then %failed inserts included%
+
+expected finding
+ s16_items.id: projected from the 2 samples since the restore at 50 a day, and saying the series
+ restarted. Never a rate across the reset. s16_wide.id: the new limit starts a new series.

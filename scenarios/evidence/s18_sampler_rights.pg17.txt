@@ -1,0 +1,24 @@
+
+the sampler as a role with no grant on the history
+ ERROR: limit_runway_sample() needs SELECT and INSERT on limit_runway_history; nothing was sampled
+ HINT: GRANT SELECT, INSERT ON limit_runway_history TO the role that runs the sample (INSTALL.md).
+
+the sampler as a role that may write the history but cannot read the sequence
+ kind | sampled | below_threshold | not_established
+ sequence | 0 | 0 | 1
+(1 row)
+
+
+the view, for the role with no grant on the history
+ rates and projected dates are not established: this role cannot read limit_runway_history
+
+checks
+ PASS the sampler refuses without INSERT on the history, and names the grant
+ PASS a sequence the sampler cannot read is counted as not established
+ PASS and nothing is recorded for it
+ PASS while xid age, readable by any role, is recorded
+ PASS finding for limit_runway_history: not established (class 5), unknowns rates and projected dates are not established%
+
+expected finding
+ No grant on the history: the sampler refuses and names it; the view has one not-established row.
+ A sequence the sampler cannot read: counted as not established, and no row is written for it.

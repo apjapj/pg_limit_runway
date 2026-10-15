@@ -1,0 +1,33 @@
+
+the usual check (pg_sequences: where each stands against its own limits)
+ sequencename | increment_by | min_value | max_value | last_value | at_ceiling | at_floor
+ s14_ceil_seq | 1 | 1 | 100 | 100 | t | f
+ s14_floor_seq | -1 | 1 | 100 | 1 | f | t
+ s14_narrow_seq | 1 | 1 | 100000 | 32767 | f | f
+(3 rows)
+
+
+what pg_limit_runway says
+ [failing now] sequence lr_scen.s14_ceil.id: lr_scen.s14_ceil.id (integer) is exhausted: the limit is 100, and the next call fails: 100 is the sequence's MAXVALUE. Then: the limit is the sequence's MAXVALUE 100, not the column's integer.
+ [failing now] sequence lr_scen.s14_floor.id: lr_scen.s14_floor.id (integer) is exhausted: the limit is 1, and the next call fails: 1 is the sequence's MINVALUE.
+ [failing now] sequence lr_scen.s14_narrow.id: lr_scen.s14_narrow.id (smallint) is exhausted: the limit is 32767, and the next value 32768 is past what smallint can hold.
+ PASS s14_ceiling says the next call fails and names no value above its MAXVALUE
+ PASS s14_floor says the next call fails and names no value below its MINVALUE
+ PASS s14_narrow names the real next value and says the column is what refuses it
+
+what actually happens on the next insert
+ s14_ceiling: ERROR: nextval: reached maximum value of sequence "s14_ceil_seq" (100)
+ s14_floor: ERROR: nextval: reached minimum value of sequence "s14_floor_seq" (1)
+ s14_narrow: ERROR: smallint out of range
+ PASS s14_narrow's failed insert still consumed 32768, so the finding moves to 'stands past it'
+
+checks
+ PASS s14_ceiling's nextval raises rather than handing out 101
+ PASS s14_floor's nextval raises rather than handing out 0
+ PASS s14_narrow fails on the column, not the sequence
+
+expected finding
+ s14_ceiling and s14_floor: exhausted at the sequence's own MAXVALUE or MINVALUE, and the sentence says the
+ next call fails, because nextval() raises there and hands out nothing. It does not name a value.
+ s14_narrow: exhausted at the COLUMN's limit, with the sequence at 32767 and MAXVALUE 100000, so there
+ the next value is real and is 32768. What refuses it is smallint, and the sentence says so.

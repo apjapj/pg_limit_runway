@@ -1,0 +1,41 @@
+
+the usual check: list the partitions and their bounds
+ parent | partition | bound
+ lr_scen.s7_events | s7_events_2026_01 | FOR VALUES FROM ('2026-01-01 00:00:00+00') TO ('2026-02-01 00:00:00+00')
+ lr_scen.s7_events | s7_events_2026_02 | FOR VALUES FROM ('2026-02-01 00:00:00+00') TO ('2026-03-01 00:00:00+00')
+ lr_scen.s7_events_dflt | s7_events_dflt_2026_02 | FOR VALUES FROM ('2026-02-01 00:00:00+00') TO ('2026-03-01 00:00:00+00')
+ lr_scen.s7_events_dflt | s7_events_dflt_default | DEFAULT
+ lr_scen.s7_accounts | s7_accounts_0 | FOR VALUES FROM (0) TO (1000000)
+(5 rows)
+
+
+what actually happens: a row for 2026-03-15
+ without a DEFAULT: ERROR: no partition of relation "s7_events" found for row
+ with a DEFAULT: (no error), and the default now holds 1 row(s)
+ then creating the March partition: ERROR: updated partition constraint for default partition "s7_events_dflt_default" would be violated by some row
+
+evidence: the partition key's type and the last upper bound
+ parent | partstrat | key_type | time_key | has_default
+ lr_scen.s7_events | r | timestamp with time zone | t | f
+ lr_scen.s7_events_dflt | r | timestamp with time zone | t | t
+ lr_scen.s7_accounts | r | integer | f | f
+(3 rows)
+
+
+checks
+ PASS without a DEFAULT, the insert past the last bound fails
+ PASS with a DEFAULT, the same insert succeeds, into the default
+ PASS and the partition for that range can then no longer be created
+ PASS s7_accounts is partitioned on a non-time key
+
+what pg_limit_runway says
+ [failing now] partition lr_scen.s7_events: the last partition ended at 2026-03-01 00:00:00+00: inserts for the present fail now.
+ [failing now] partition lr_scen.s7_events_dflt: the last partition ended at 2026-03-01 00:00:00+00: rows for the present go silently into the DEFAULT. Then: the DEFAULT lr_scen.s7_events_dflt_default holds rows past the last bound: the partition for their range cannot be created until they are moved.
+ PASS finding for lr_scen.s7_events: reached (class 1)
+ PASS finding for lr_scen.s7_events_dflt: reached (class 1), then %DEFAULT%holds rows%cannot be created until they are moved%
+ PASS finding for lr_scen.s7_accounts: none
+
+expected finding
+ s7_events: runs out at 2026-03-01, a fixed boundary with no rate. s7_events_dflt: has 'run out' into its
+ DEFAULT, which hides it, and that row now blocks creating the missing partition: a worse finding, not a
+ safer one. s7_accounts: skipped, its key is not a time.
