@@ -3,6 +3,36 @@
 Versions are listed newest first. Released tags are never edited: a change that needs
 a new entry gets a new version.
 
+## 0.4.0 (2026-10-15)
+
+The Act stage: for every finding that needs action, the least destructive statement that can work, with
+its tier and its cost. `limit_runway_command()` returns one runnable row per finding, for pasting or for
+`SELECT command FROM limit_runway_command() \gexec`; it runs nothing itself. The tier is the coarser
+grouping of the same ladder the sender uses: `plan` more than 7 days out, `schedule` 1 to 7, `act` under
+a day or failing now. A finding the tool cannot establish is not returned, because a gap is not
+something to act on. The statement and the note for each kind are the contract in
+[docs/act.md](docs/act.md); the row shape and the three tiers are in [docs/command.md](docs/command.md).
+
+One existing object changes, additively but not in place. A partition finding now carries `from_date`,
+the last partition's lower bound, so `limit_runway_command()` can build the next
+`CREATE TABLE ... PARTITION OF` with an exact width instead of a placeholder. A `RETURNS TABLE`
+function's row type is part of its signature, so the update drops and recreates
+`limit_runway_findings()`, and with it the `limit_runway` view and `limit_runway_text()`, which depend
+on it.
+
+- **Re-grant after the update.** Dropping the view and `limit_runway_text()` drops their grants too. A
+  role that had `GRANT SELECT ON limit_runway` or `GRANT EXECUTE ON FUNCTION limit_runway_text(...)`
+  needs them re-issued (INSTALL.md lists the monitoring grants). The extension's own rule, that nothing
+  is executable by `PUBLIC`, is restored by the update.
+- `limit_runway_command()` is closed by default, like the other readers: grant it to the role that
+  should run the statements.
+- `limit_runway_findings()` grows one column, `from_date`, and the `limit_runway` view grows it too,
+  appended after `unknowns` so every earlier column keeps its place.
+
+Internal: `limit_runway_command_row()` holds the per-finding derivation, so the statement for a kind a
+test cannot build inside one transaction (an xid age, a lost replication slot) is still pinned with a
+synthetic row. It is `REVOKE`d from `PUBLIC`.
+
 ## 0.3.0 (2026-10-15)
 
 The Detect stage: it tells you before a limit is reached, and it stops telling you when there is
