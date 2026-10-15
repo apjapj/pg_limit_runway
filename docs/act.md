@@ -51,7 +51,7 @@ over it, not a second lookup. The sequence kind is the one that needs care: the 
 (two). The command branches on that, which is why the row is built from the finding and not from the
 catalog again.
 
-## The one open question: partitions
+## The one open question: partitions, now decided
 
 Every other kind carries enough in its finding to build a complete statement. A partition does not.
 The finding gives the **last partition's upper bound** (`until_date`) and nothing about the width:
@@ -61,32 +61,35 @@ CREATE TABLE <table>_<next> PARTITION OF <table> FOR VALUES FROM ('<last_bound>'
 ```
 
 The `FROM` is known and the table name can be derived, but the `TO` is `last_bound + one interval`,
-and the interval is whatever the existing partitions use, which the finding does not say. Three ways
-out, and one has to be chosen:
+and the interval is whatever the existing partitions use, which the finding does not say.
 
-- **Extend the finding.** Add the last partition's **lower** bound to what the partition kind reports,
-  so the width is `last_bound - lower_bound` and both bounds are exact. This is the only option that
-  keeps rule 1 (runnable) and rule 2 (least destructive) at once, at the cost of one more field on the
-  partition finding.
-- **A placeholder.** Emit the statement with a `:)` or `<<interval>>` the caller replaces. Rejected by
-  rule 1.
-- **No command.** Return the partition row with no command and a note saying the next boundary is the
-  caller's to choose. Honest, and loses the one thing the tool is for.
+**Decided: the partition finding grows by one OUT column, the last partition's lower bound.** The
+width is then `last_bound - lower_bound`, both bounds are exact, and the command is complete and
+runnable. The alternatives, a placeholder or no command at all, were rejected: the first breaks the
+"runnable or not there at all" rule and the second loses the thing the tool is for.
 
-The recommendation is the first: extend the partition finding by one bound. It is one field, it makes
-the command exact, and it does not change any existing column.
+The cost is larger than this document first claimed, and the correction is worth stating. This
+function's row type is part of its signature, so the column **cannot** be added with `CREATE OR
+REPLACE`: it is `DROP FUNCTION` then `CREATE`, exactly as `pg_bloat_cause`'s 0.2.2 had to do for
+`limit_runway_sequences()`. And `limit_runway` is `SELECT * FROM limit_runway_findings()`, so the
+view gains the column too, and the view's column check in `test/01_limit_runway.sql` moves by one.
+Grants on the function must be restated, because a dropped function takes its grants with it. The
+two existing readers that matter, `limit_runway_text()` and the view, use named columns and are
+unaffected by the addition itself.
 
 ## What must not change
 
-- `limit_runway_findings()` keeps its row shape. If the partition finding grows a field, it grows by
-  one, additively, and every existing reader is unaffected.
 - The command runs nothing. It returns text.
+- The two readers that matter, `limit_runway_text()` and the `limit_runway` view, keep working. The
+  view gains the partition lower bound, and that is the one visible change; it is additive to every
+  column that existed before.
 - Version: this is a new release, a new release script and an update path, never an edit to the
-  released `0.3.0`.
+  released `0.3.0`. The `DROP FUNCTION`/`CREATE` of the findings function is why the update path is
+  not a plain `CREATE OR REPLACE` and has to restate the grants.
 
 ## The next concrete step
 
-Settle the partition question, then write the pgTAP test asserting the **tier and the command for one
-fixture of each kind**, against the function absent so it fails loudly, then add
-`limit_runway_command()` to make it pass. One scenario per kind that can be built cheaply, asserting
-the statement is a single statement and names the right object.
+The partition question is settled above. Write the pgTAP test asserting the **tier and the command
+for one fixture of each kind**, against the function absent so it fails loudly, then add the lower
+bound to the finding and `limit_runway_command()` to make it pass. One scenario per kind that can be
+built cheaply, asserting the statement is a single statement and names the right object.
