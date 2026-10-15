@@ -19,7 +19,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
 CREATE EXTENSION IF NOT EXISTS pg_limit_runway;
 \o
-SELECT plan(35);
+SELECT plan(42);
 
 -- ---------------------------------------------------------------- the objects
 SELECT has_function('limit_runway_command', ARRAY['numeric'], 'limit_runway_command(numeric) exists');
@@ -52,6 +52,20 @@ CREATE TABLE lr_c.events_202602 PARTITION OF lr_c.events FOR VALUES FROM ('2026-
 CREATE ROLE lr_c_expired LOGIN VALID UNTIL '2000-01-01';
 SELECT format('CREATE ROLE lr_c_soon LOGIN VALID UNTIL %L', now() + interval '3 days') \gexec
 SELECT format('CREATE ROLE lr_c_plan LOGIN VALID UNTIL %L', now() + interval '20 days') \gexec
+-- The finding carries its object already quoted (findings builds it with %I), so the command must
+-- quote each name exactly once: a second %I would produce """Mixed""". A name with a space and a
+-- mixed-case table pin that, for a column-filled sequence, a foreign key and a partition.
+CREATE SCHEMA "lr C";
+CREATE SEQUENCE "lr C"."past seq" AS bigint;
+CREATE TABLE "lr C"."Mixed Table" (id int4 PRIMARY KEY DEFAULT nextval('"lr C"."past seq"'));
+ALTER SEQUENCE "lr C"."past seq" OWNED BY "lr C"."Mixed Table".id;
+SELECT setval('"lr C"."past seq"', 2147483648);
+CREATE TABLE "lr C"."Parent Tbl" (id bigint PRIMARY KEY);
+CREATE SEQUENCE "lr C"."parent seq" AS bigint OWNED BY "lr C"."Parent Tbl".id;
+CREATE TABLE "lr C"."Child Tbl" ("parent id" int4 REFERENCES "lr C"."Parent Tbl"(id));
+SELECT setval('"lr C"."parent seq"', 3000000000);
+CREATE TABLE "lr C"."Events Tbl" (at timestamptz NOT NULL) PARTITION BY RANGE (at);
+CREATE TABLE "lr C"."Events Tbl 202602" PARTITION OF "lr C"."Events Tbl" FOR VALUES FROM ('2026-02-01') TO ('2026-03-01');
 \o
 
 -- ---------------------------------------------------------------- one synthetic finding per kind: tier and statement
@@ -65,6 +79,10 @@ SELECT is((SELECT tier || ' | ' || command
              FROM limit_runway_command_row(1, 'sequence', 'lr_c.solo', NULL, NULL, NULL)),
           'act | ALTER SEQUENCE lr_c.solo AS bigint;',
           'a sequence no column owns is act, and the fix is to raise the sequence''s own ceiling');
+SELECT is((SELECT tier || ' | ' || command
+             FROM limit_runway_command_row(1, 'sequence', '"lr C"."Mixed Table".id', NULL, NULL, NULL)),
+          'act | ALTER TABLE "lr C"."Mixed Table" ALTER COLUMN id TYPE bigint;',
+          'an object the finder already quoted is quoted once, not twice: the derivation unquotes it first');
 SELECT is((SELECT tier || ' | ' || command
              FROM limit_runway_command_row(1, 'foreign key', 'lr_c.child.parent_id', NULL, NULL, NULL)),
           'act | ALTER TABLE lr_c.child ALTER COLUMN parent_id TYPE bigint;',
@@ -140,6 +158,18 @@ SELECT is((SELECT count(*)::int FROM limit_runway_command(0)),
           (SELECT count(*)::int FROM limit_runway_findings(0)
             WHERE state <> 'not established' AND NOT (kind = 'partition' AND from_date IS NULL)),
           'the command list is exactly the findings that need action, so the two cannot drift');
+SELECT is((SELECT count(*)::int FROM limit_runway_command(0.5)),
+          (SELECT count(*)::int FROM limit_runway_findings(0.5)
+            WHERE state <> 'not established' AND NOT (kind = 'partition' AND from_date IS NULL)),
+          'the same holds at the 0.5 default, which is not the same set as min_used 0');
+SELECT is((SELECT array_agg(object)::text FROM limit_runway_command(0)),
+          (SELECT array_agg(object)::text FROM (SELECT object FROM limit_runway_findings(0)
+              WHERE state <> 'not established' AND NOT (kind = 'partition' AND from_date IS NULL)
+              ORDER BY rank_class, until_date NULLS LAST, used_fraction DESC NULLS LAST, object) f),
+          'the command list carries the findings order, not an arbitrary one');
+SELECT is((SELECT note FROM limit_runway_command(0) WHERE object = 'lr_c.events'),
+          'creates the next partition, its width the same as the last one''s; inserts for that range fail, or land in the DEFAULT, until it exists',
+          'the note states the cost, so the least destructive is not sold as free');
 SELECT is((SELECT count(*)::int FROM limit_runway_command()),
           (SELECT count(*)::int FROM limit_runway_command(0.5)),
           'the default argument is the min_used the readers use');
@@ -154,6 +184,17 @@ SELECT is((SELECT tier || ' | ' || command FROM limit_runway_command(0) WHERE ob
 SELECT is((SELECT tier || ' | ' || command FROM limit_runway_command(0) WHERE object = 'lr_c.child.parent_id'),
           'act | ALTER TABLE lr_c.child ALTER COLUMN parent_id TYPE bigint;',
           'the finding for a narrow foreign key builds the child-column statement');
+SELECT is((SELECT tier || ' | ' || command FROM limit_runway_command(0) WHERE object = '"lr C"."Mixed Table".id'),
+          'act | ALTER TABLE "lr C"."Mixed Table" ALTER COLUMN id TYPE bigint;',
+          'a real quoted column-filled sequence builds a statement that names the real table once');
+SELECT is((SELECT tier || ' | ' || command FROM limit_runway_command(0) WHERE object = '"lr C"."Child Tbl"."parent id"'),
+          'act | ALTER TABLE "lr C"."Child Tbl" ALTER COLUMN "parent id" TYPE bigint;',
+          'a real quoted foreign-key column is quoted once, so the statement runs');
+SELECT is((SELECT tier || ' | ' || command FROM limit_runway_command(0) WHERE object = '"lr C"."Events Tbl"'),
+          'act | ' || format('CREATE TABLE %I.%I PARTITION OF %I.%I FOR VALUES FROM (%L) TO (%L);',
+                             'lr C', 'Events Tbl_20260301', 'lr C', 'Events Tbl',
+                             '2026-03-01'::timestamptz, '2026-03-29'::timestamptz),
+          'a real quoted partition builds a partition whose name is one quoted identifier, suffix included');
 SELECT is((SELECT from_date FROM limit_runway_findings(0) WHERE object = 'lr_c.events'),
           '2026-02-01'::timestamptz,
           'the partition finding carries the last partition''s lower bound');
