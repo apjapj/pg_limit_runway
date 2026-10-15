@@ -1,9 +1,10 @@
 # command and alerting: the Act and Detect contract, settled before any code
 
 **Status: implemented.** `limit_runway_notify()` and `limit_runway_notify_resolved()` shipped in 0.3.0
-and `limit_runway_command()` in 0.4.0. This is the contract for all three, written down before any SQL
-so the work started from decisions rather than from questions. `README.md` step 6 states the trigger and
-the ladder; this document is the authority for everything it does not.
+and `limit_runway_command()` in 0.4.0, with 0.4.1 a quoting fix to the command and no shape change.
+This is the contract for all three, written down before any SQL so the work started from decisions
+rather than from questions. `README.md` step 6 states the trigger and the ladder; this document is the
+authority for everything it does not.
 
 The shared payload contract is [ALERTS.md](https://github.com/apjapj/pg_incident_watch) in
 `pg_incident_watch`, and it is not negotiable here: the five required keys, the `event` vocabulary,
@@ -82,15 +83,22 @@ told a number of days:
 
 | tier | when | what it means |
 |---|---|---|
-| `plan` | more than 7 days left | the statement and its cost, no urgency |
-| `schedule` | 1 to 7 days left | do it this week |
-| `act` | under 1 day left, or failing now | do it now |
+| `plan` | more than 7 days left, or under half the limit used | the statement and its cost, no urgency |
+| `schedule` | 1 to 7 days left, or 0.5 to 0.875 of the limit used | do it this week |
+| `act` | under 1 day left, 0.875 or more used, or failing now | do it now |
+
+The tier is `limit_runway_urgency()` grouped, so the date half and the share half cross the labels on
+the same geometric edges the notification uses. A no-date finding (connection headroom, a "no rate
+yet" row) has no days left, so it reaches `schedule` from 0.5 of the limit used and `act` from 0.875,
+which is the halving of the remaining headroom the "findings with no date" section below sets out.
 
 A finding that is already failing (state `reached`, `exhausted`, `cycled into existing keys`, a
 partition past its last bound) is `act` whatever its date, because there is no date and the insert is
-being refused now. The tier is a function of the finding, not of the operator's threshold, except
-that the top of `plan` is the `within` window: a finding further out than `within` is not reported by
-`limit_runway_command()` either, so the command list and the alert window describe the same set.
+being refused now. The tier is a function of the finding, not of the operator's threshold. The top of
+`plan` is the `within` window at its default: `limit_runway_command()` takes no `within` argument, so
+its command list is the 30-day window the readers default to, and `limit_runway_notify(within => ...)`
+set narrower would notify on a smaller set and not act on it. At the defaults the command list and the
+alert window describe the same set.
 
 ## Findings with no date
 
@@ -205,6 +213,9 @@ needing action, so the two cannot drift.
 The ladder and its silence half are `test/03_notify.sql`, written against the functions absent; the Act
 stage is `test/04_command.sql`, written the same way, one fixture of each kind, with the internal
 per-row derivation carrying the kinds a single transaction cannot build. Both are in 0.4.0 and 0.3.0.
+`test/05_upgrade.sql` is 0.4.1's other half: it is the first test to run an update path at all, because
+every other test installs the default version from scratch and the drop-and-recreate SQL a release
+ships otherwise goes unexecuted by every gate.
 
 Left open on purpose: `from_date` is the only field the command needed and did not have, so it is the
 only one added. A limit whose finding still cannot build a complete statement produces no row rather

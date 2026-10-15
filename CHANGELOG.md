@@ -3,6 +3,32 @@
 Versions are listed newest first. Released tags are never edited: a change that needs
 a new entry gets a new version.
 
+## 0.4.1 (2026-10-15)
+
+A quoting fix to the Act stage, and the first test that runs an update path.
+
+`limit_runway_command_row()` split the finding's `object` on `.` and then applied `%I` to each part, but
+the finder builds that object with `%I` already, so any name that needed quoting came back
+double-quoted: `"lr C"."Mixed Table".id` became `"""lr C"""."""Mixed Table""".id`, a statement naming an
+object that does not exist, which is the first rule of [docs/act.md](docs/act.md) broken. A lowercase
+name was unaffected, which is why every 0.4.0 fixture passed. The derivation now recovers the names
+with `parse_ident()`, which also splits a dot inside a quoted name correctly, and quotes each exactly
+once; a new partition's name is one quoted identifier with the date suffix inside the quotes, so a
+mixed-case parent gives `"Events Tbl_20260301"` and not `"Events Tbl"_20260301`. The `xid` and
+`multixact` notes gained one clause: `VACUUM` cannot run inside a transaction block.
+
+- **No re-grant needed.** The function's row type does not change, so this update path is a single
+  `CREATE OR REPLACE FUNCTION` body plus its comment and `REVOKE`: no `DROP`, and no grant taken with
+  it. 0.4.0's drop-and-recreate of the findings function stays as it is; an installation still at
+  0.3.0 runs both update scripts in order and the 0.4.0 re-grant note below still applies to it.
+- `test/05_upgrade.sql` is new, and is the first thing in the repository to execute a
+  `pg_limit_runway--X--Y.sql` at all: it creates 0.3.0, updates through the chain, and asserts the
+  changelog's promises, including that a monitor role's grant is gone until it is re-issued.
+- `test/04_command.sql` grows a quoted schema and one quoted fixture of each kind the command builds
+  by splitting the object, plus an order assertion, a note assertion and a 0.5-set parity assertion.
+- The scenario s4 now prints the command the Act stage builds for its foreign key, so the statement
+  itself is under the byte-identical evidence check.
+
 ## 0.4.0 (2026-10-15)
 
 The Act stage: for every finding that needs action, the least destructive statement that can work, with

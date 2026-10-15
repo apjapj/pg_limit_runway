@@ -36,6 +36,11 @@ and `limit_runway_text()`, which depend on it. Dropping them drops their grants:
 `GRANT SELECT ON limit_runway` and `GRANT EXECUTE ON FUNCTION limit_runway_text(...)` (and on
 `limit_runway_command(...)` if you want it) after updating. The next section lists them.
 
+From 0.4.0: `ALTER EXTENSION pg_limit_runway UPDATE TO '0.4.1';`. It changes one function body
+(`limit_runway_command_row()`, a quoting fix) with `CREATE OR REPLACE`, so nothing is dropped and no
+grant is affected: the re-grant above is only for the 0.3.0 step. An installation at 0.3.0 updates
+through both in order, and `ALTER EXTENSION pg_limit_runway UPDATE` with no `TO` runs the whole chain.
+
 ## Sampling, for dates (0.2)
 
 A projected date needs samples. Schedule the sampler hourly, as a role with the grants in the next
