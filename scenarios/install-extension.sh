@@ -7,7 +7,7 @@
 # an md5 of every destination compared with its source, a mismatch being a failed install.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-FILES="pg_limit_runway.control pg_limit_runway--0.1.sql pg_limit_runway--0.2.sql pg_limit_runway--0.2.1.sql pg_limit_runway--0.2.2.sql pg_limit_runway--0.1--0.2.sql pg_limit_runway--0.2--0.2.1.sql pg_limit_runway--0.2.1--0.2.2.sql"
+FILES="pg_limit_runway.control pg_limit_runway--0.1.sql pg_limit_runway--0.2.sql pg_limit_runway--0.2.1.sql pg_limit_runway--0.2.2.sql pg_limit_runway--0.3.0.sql pg_limit_runway--0.1--0.2.sql pg_limit_runway--0.2--0.2.1.sql pg_limit_runway--0.2.1--0.2.2.sql pg_limit_runway--0.2.2--0.3.0.sql"
 for c in "$@"; do
     for f in $FILES; do
         want=$(md5sum "$f" | cut -d' ' -f1)

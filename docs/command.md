@@ -118,33 +118,37 @@ The five required keys, plus this tool's own, all additive per the contract's ru
   "tool":       "pg_limit_runway",
   "channel":    "limit_runway",
   "event":      "alerting" | "escalated" | "cleared",
-  "subject":    "sequence public.orders_id_seq",
+  "subject":    "sequence public.orders.id",
   "sampled_at": "2026-10-15T09:12:04+01:00",
   "kind":       "sequence",
-  "object":     "public.orders_id_seq",
+  "object":     "public.orders.id",
   "tier":       "schedule",
   "until_date": "2026-10-20T00:00:00+01:00",
   "days_left":  4,
   "state":      "date",
-  "summary":    "public.orders_id_seq (int4) runs out on 20 October at the current rate"
+  "summary":    "public.orders.id (int4) runs out on 20 October at the current rate"
 }
 ```
 
 `subject` is the limit's identity and must be stable for the life of the problem, per the contract's
-long note on the subject key. The forms, one per kind:
+long note on the subject key. It is built from the finding's own two fields, `<kind> <object>`, so it
+is stable by construction and a listener can rebuild it from the payload's other keys:
 
-| kind | subject |
-|---|---|
-| a sequence or identity column | `sequence <schema>.<sequence>` |
-| transaction id wraparound | `xid wraparound` |
-| MultiXact wraparound | `multixact wraparound` |
-| a range partition | `partition <schema>.<table>` |
-| a replication slot | `slot <slot_name>` |
-| connection headroom | `connection headroom` |
-| a role password | `role <rolname> password expiry` |
+| kind | subject | example |
+|---|---|---|
+| `sequence` | `sequence <schema>.<table>.<column>`, or the sequence alone when no column owns it | `sequence public.orders.id` |
+| `foreign key` | `foreign key <schema>.<table>.<column>` | `foreign key public.shipments.order_id` |
+| `xid` | `xid <object>`, a database or a table | `xid database postgres` |
+| `multixact` | `multixact <object>` | `multixact member space` |
+| `partition` | `partition <schema>.<table>` | `partition public.events` |
+| `replication slot` | `replication slot <slot_name>` | `replication slot standby_a` |
+| `connections` | `connections <object>` | `connections server` |
+| `password` | `password role <rolname>` | `password role reporting` |
 
-The subject is never the OID, for the reason the contract gives: a listener reading a log a week
-later cannot resolve one.
+The identity a sequence carries is the **column** that fills it, not the sequence's own name: that is
+the object `limit_runway_findings()` already uses everywhere, and a subject that disagreed with the
+finding's `object` would make a listener correlate two names for one limit. The subject is never the
+OID, for the reason the contract gives: a listener reading a log a week later cannot resolve one.
 
 ## The order of work, and why it is that order
 

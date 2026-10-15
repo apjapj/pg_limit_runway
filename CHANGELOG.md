@@ -3,6 +3,23 @@
 Versions are listed newest first. Released tags are never edited: a change that needs
 a new entry gets a new version.
 
+## 0.3.0 (2026-10-15)
+
+The Detect stage: it tells you before a limit is reached, and it stops telling you when there is
+nothing to say. `limit_runway_notify()` raises one `NOTIFY` when a limit crosses into the 30-day
+window and one more on each halving of it, 15, 7, 3 and 1 days, and nothing in between. Escalation
+compares against the urgency at the **last notification**, not against the previous sample: a date
+only ever gets closer, so a sample-by-sample comparison would fire on every sample, which is the
+failure the state table exists to prevent. `limit_runway_notify_resolved()` raises `cleared` once and
+forgets the subject, so the same limit approaching again alerts from the start rather than against a
+high-water mark from a problem already fixed. State lives in `limit_runway_alert`; the ladder lives in
+`limit_runway_urgency()`, a pure function so the sender and the resolver read it the same way. A
+finding the tool cannot establish never notifies: a gap in coverage is not an event. The design,
+including why the ladder is five geometric edges rather than three, is in
+[docs/command.md](docs/command.md). No existing object changes, so the update path is additive.
+
+`limit_runway_command()`, the Act stage, is not here. It is next.
+
 ## 0.2.2 (2026-10-14)
 
 A correction with a consequence. A sequence that a column fills by `DEFAULT` and not by

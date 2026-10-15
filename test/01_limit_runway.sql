@@ -23,13 +23,15 @@ SELECT columns_are('limit_runway',
   ARRAY['rank_class', 'rank_label', 'kind', 'object', 'current_value', 'limit_value', 'used_fraction',
         'until_date', 'state', 'detail', 'then', 'unknowns'],
   'limit_runway has the columns docs/ranking.md describes, including state, then and unknowns');
--- 0.2: the sampler and the pruner write, so they are VOLATILE; nothing else is, and nothing runs as
--- its owner.
+-- 0.2: the sampler and the pruner write, so they are VOLATILE; 0.3: so are the two senders, which write
+-- state and NOTIFY. Nothing else is, and nothing runs as its owner. limit_runway_urgency() only reads,
+-- so it is STABLE and is not here.
 SELECT is((SELECT string_agg(p.proname, ',' ORDER BY p.proname) FROM pg_proc p JOIN pg_depend d ON d.objid = p.oid
             JOIN pg_extension e ON e.oid = d.refobjid AND e.extname = 'pg_limit_runway'
-           WHERE p.provolatile = 'v' OR p.prosecdef), 'limit_runway_prune,limit_runway_sample',
-          'only the sampler and the pruner are VOLATILE, and none is SECURITY DEFINER: the readers read, '
-          || 'with the caller''s rights');
+           WHERE p.provolatile = 'v' OR p.prosecdef),
+          'limit_runway_notify,limit_runway_notify_resolved,limit_runway_prune,limit_runway_sample',
+          'only the sampler, the pruner and the two senders are VOLATILE, and none is SECURITY DEFINER: '
+          || 'the readers read, with the caller''s rights');
 
 -- ---------------------------------------------------------------- fixtures
 \o /dev/null
