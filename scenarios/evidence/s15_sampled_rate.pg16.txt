@@ -1,0 +1,28 @@
+
+three samples, a day apart, with 100 real inserts between each
+ two days back: 5 limit(s) sampled
+ one day back: 5 limit(s) sampled
+ now: 5 limit(s) sampled
+ day | position | limit_value | epoch
+ -2.0000000000000000 | 150 | 1000 | 0
+ -1.00000000000000000000 | 250 | 1000 | 0
+ 0.000000000000000000000000 | 350 | 1000 | 0
+(3 rows)
+
+
+what pg_limit_runway says
+ [date] sequence lr_scen.s15_orders.id: 650 of 1000 values left (integer, ascending); at 100 per day, from 3 samples over 2 days, it runs out about <date>. Then: the limit is the sequence's MAXVALUE 1000, not the column's integer; the rate counts calls of nextval(), failed inserts included, so the real date can come sooner: an error band this tool cannot narrow.
+
+what pg_limit_runway says
+ [date] password role lr_scen_s15: the password of lr_scen_s15 expires at <run-time timestamp>. Then: logins that do not use a password are not affected: trust, peer and certificate logins still work.
+
+checks
+ PASS the position is calls used: 150, 250, 350
+ PASS 100 calls a day over the two days
+ PASS 650 calls left is six and a half days after the newest sample
+ PASS finding for lr_scen.s15_orders.id: projected (class 2), then %failed inserts included%
+ PASS the view lists role lr_scen_s15 before lr_scen.s15_orders.id
+
+expected finding
+ s15_orders.id: projected, class 2, about six and a half days out, with the rate and the error band.
+ The password three days out sorts before it: fixed and projected dates share one timeline.

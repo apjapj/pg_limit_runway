@@ -161,8 +161,13 @@ reverse.
 
 `INSTALL.md` with the exact grants (written with 0.1; revisit as 5 and 6 add objects). Most of this reads catalogs any role can see, but
 `pg_stat_activity` for connection counts needs `pg_read_all_stats`, and some control functions are
-superuser-only by default; list exactly which are needed and what is reported without them. Run on
-the shared matrix.
+superuser-only by default; list exactly which are needed and what is reported without them.
+
+`INSTALL.md` is written. The matrix runs **14 to 18** on every push, with the evidence for each
+version committed, and 19 is open: its image needs the `include` form and a separate apt major, as
+pg_lock_tree's workflow does it. This sentence states the range deliberately, so that
+`scripts/check-pg-matrix-claims.sh` has something to check and a later edit to the workflow cannot
+leave the documentation claiming a range nobody runs.
 
 ## Open questions
 

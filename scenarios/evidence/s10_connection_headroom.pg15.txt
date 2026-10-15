@@ -1,0 +1,42 @@
+
+the usual check: sessions against max_connections
+ plenty_of_headroom | max_connections
+ t | 100
+(1 row)
+
+
+what actually happens
+ a third session for lr_scen_app: FATAL: too many connections for role "lr_scen_app"
+ a second session in lr_scen_db, as lr_scen_web: FATAL: too many connections for database "lr_scen_db"
+ the same, as the superuser postgres: superuser let in
+
+evidence: the limits a tool would read
+ max_connections | superuser_reserved | reserved_connections | for_ordinary_roles
+ 100 | 3 | | 97
+(1 row)
+
+ kind | name | lim | used
+ role | lr_scen_app | 2 | 2
+ database | lr_scen_db | 1 | 1
+(2 rows)
+
+ reserved_connections does not exist before 16: on this version only superuser_reserved_connections is held back
+
+checks
+ PASS the usual check says there is plenty of headroom
+ PASS and the role is out: a third session is refused
+ PASS and the database is out: a second ordinary session is refused
+ PASS but a superuser is let in past the database's limit
+
+what pg_limit_runway says
+ [failing now] connections database lr_scen_db: 1 of 1 connections in use: new sessions are refused. Then: superusers are exempt from this limit.
+ [failing now] connections role lr_scen_app: 2 of 2 connections in use: new sessions are refused. Then: superusers are exempt from this limit.
+ PASS finding for role lr_scen_app: full (class 1), then %superusers are exempt%
+ PASS finding for database lr_scen_db: full (class 1), then %superusers are exempt%
+ PASS finding for role lr_scen_web: none
+
+expected finding
+ lr_scen_app: 2 of 2 connections in use; lr_scen_db: 1 of 1. Both full while the server has headroom.
+ Headroom is a peak against a limit, not a rate: report the highest use over the window, per role and
+ per database as well as for the server. Superusers are exempt from the per-role and per-database
+ limits, so a check run as one cannot test them by trying to connect.

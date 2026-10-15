@@ -16,6 +16,9 @@ lint:
 	# Every catalog a README feature table names is one the release script reads. Four wrong
 	# claims of that kind were found by hand, and a manual pass is forgotten.
 	./scripts/check-evidence-claims.sh
+	# A document that states the PostgreSQL range the matrix covers must state the range the
+	# workflow declares. The same rule as pg_bloat_cause's, where the claim and CI disagreed.
+	./scripts/check-pg-matrix-claims.sh
 	./scenarios/check-evidence.sh
 	# Rejects a duplicated mapping key, which PyYAML accepts silently and Forgejo does not.
 	# A workflow with one dispatches no jobs at all and its run reads as a plain failure.

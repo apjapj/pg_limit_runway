@@ -1,0 +1,27 @@
+
+reading the current xid: which way consumes one
+ PASS two reads of pg_snapshot_xmax(pg_current_snapshot()) assign nothing
+ PASS one call of pg_current_xact_id() assigns an xid
+
+the forced vacuum: two tables with autovacuum OFF and autovacuum_freeze_max_age 100000 (the lowest allowed)
+ PASS age(relfrozenxid) passed the table's autovacuum_freeze_max_age of 100000
+ PASS an anti-wraparound autovacuum ran on both, although autovacuum_enabled = false
+ PASS with the default freeze_min_age it froze nothing: s5_ledger's age is still over 100000
+ PASS with freeze_min_age 0 it froze the table: s5_ledger_fmin0's age fell under 100000
+
+the usual check, and the distances a tool would report (this database)
+ datname | age_readable | autovacuum_freeze_max_age | vacuum_failsafe_age | wraparound
+ postgres | t | 200000000 | 1600000000 | 2147483648
+(1 row)
+
+
+what pg_limit_runway says (ages vary between runs, so only the checks are kept)
+ PASS finding for lr_scen.s5_ledger: no rate yet (class 3), then %forced vacuum need not lower the age%
+ PASS finding for lr_scen.s5_ledger_fmin0: none
+
+expected finding
+ XID age is the database's age(datfrozenxid), read without assigning an xid. The forced vacuum starts at
+ autovacuum_freeze_max_age and ignores autovacuum_enabled = false. But it only freezes rows older than
+ vacuum_freeze_min_age, so a forced vacuum running is not the same as age falling: a tool must read the
+ age after the vacuum, not assume the vacuum fixed it. The failsafe (vacuum_failsafe_age) and the stop
+ before 2^31 are reported as distances, not observed here.

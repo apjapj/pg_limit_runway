@@ -26,7 +26,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        pg: ["14", "18"]
+        # Every stable version in the supported range, not a sample of it. 14 and 18 were the whole
+        # matrix until this, so 15, 16 and 17 were never run anywhere. All three pass on this harness,
+        # run by hand first, with their evidence committed alongside.
+        pg: ["14", "15", "16", "17", "18"]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - run: |

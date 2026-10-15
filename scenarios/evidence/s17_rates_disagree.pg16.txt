@@ -1,0 +1,19 @@
+
+the two slopes
+ samples | per_day_7d | per_day_24h | days_left_7d | days_left_24h
+ 3 | 16.43 | 100.00 | 47.78 | 7.85
+(1 row)
+
+
+what pg_limit_runway says
+ [date] sequence lr_scen.s17_jobs.id: 785 of 1000 values left (integer, ascending); at 16.43 per day, from 3 samples over 7 days, it runs out about <date>; the last 24 hours ran at 100 per day, which gives <date>. Then: the limit is the sequence's MAXVALUE 1000, not the column's integer; the rate counts calls of nextval(), failed inserts included, so the real date can come sooner: an error band this tool cannot narrow.
+
+checks
+ PASS the week ran at 115 calls in 7 days
+ PASS the last half day ran at 100 a day, more than twice that
+ PASS the row is ranked by the sooner date, the 24-hour one
+ PASS finding for lr_scen.s17_jobs.id: projected (class 2), then %failed inserts included%
+
+expected finding
+ s17_jobs.id: both rates and both dates in the detail, ranked by the sooner. The week's 16 a day
+ alone would put it 47 days out, outside the date window; the last day's 100 puts it under 8.
