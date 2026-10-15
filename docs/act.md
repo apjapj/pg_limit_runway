@@ -128,7 +128,8 @@ age, a lost replication slot) are asserted through `limit_runway_command_row()`,
 derivation, with a synthetic finding; the public `limit_runway_command()` is asserted against the
 sequence, foreign-key, partition, password and connection fixtures the transaction can build, so the
 finding and the statement are checked end to end. Every returned statement is asserted to be one
-non-empty, terminated statement naming a real object, and the command list is asserted to be exactly
+non-empty, terminated statement, and, where a fixture builds the finding, to be exactly the statement
+that finding implies; the command list is asserted to be exactly
 the findings that are not "not established", so the two cannot drift. 0.4.1 is the repair of one fault
 those fixtures did not see: every object in `test/04` was a lowercase name, so a name that needed
 quoting was never built. It now has a quoted schema and one quoted fixture of each kind, the internal

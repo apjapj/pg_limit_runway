@@ -43,7 +43,7 @@ change that breaks one will go red rather than pass quietly.
 ## Tests
 
 `test/01_limit_runway.sql` is `plan(38)`, `test/02_history.sql` is `plan(33)`, `test/03_notify.sql` is
-`plan(25)`, `test/04_command.sql` is `plan(42)` and `test/05_upgrade.sql` is `plan(10)`. The plans must
+`plan(25)`, `test/04_command.sql` is `plan(43)` and `test/05_upgrade.sql` is `plan(10)`. The plans must
 match the assertion counts; the lint does not check that here, so if you add an assertion, count it.
 
 ### A test that cannot fail is not a test
@@ -155,3 +155,17 @@ quietly break the posture the others keep:
 
 No em-dashes or en-dashes in any document, comment, script or workflow. The lint checks
 it, and a reader's eye catches it before anything else.
+
+### Versions in prose
+
+CI runs every PostgreSQL version the matrix declares: 14, 15, 16, 17 and 18, all of them,
+with no hole. Two kinds of sentence name versions, and they are not the same claim:
+
+- A document that states **current coverage** names the matrix range, `14 to 18`.
+  `scripts/check-pg-matrix-claims.sh` checks these against the workflow.
+- A document that records a **past measurement** names the versions it was measured on,
+  which may be fewer than the matrix: `measured on 14 and 18` stays as written. Nothing
+  checks these, because the number was true when it was written.
+
+Do not widen a past measurement to look current, and do not narrow a coverage claim to
+the ends of the matrix.

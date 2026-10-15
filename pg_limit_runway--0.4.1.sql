@@ -16,8 +16,8 @@
  * installation updated from 0.4.0 runs pg_limit_runway--0.4.0--0.4.1.sql, and one from 0.3.0 runs the
  * two update scripts in order.
  *
- * The SQL surface through 0.3.0 is described in pg_limit_runway--0.3.0.sql, and the Act stage it
- * through 0.4.0 in pg_limit_runway--0.4.0.sql.
+ * The SQL surface through 0.3.0 is described in pg_limit_runway--0.3.0.sql, and the Act stage as it
+ * stood through 0.4.0 in pg_limit_runway--0.4.0.sql.
  */
 \echo Use "CREATE EXTENSION pg_limit_runway" to load this file. \quit
 

@@ -13,6 +13,10 @@ SET client_min_messages = warning;
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
 -- Create an old version rather than the released one, so this exercises the update path itself.
+-- Drop first: a server may already carry the extension, and the CI scenario jobs install it before
+-- pg_prove, so CREATE EXTENSION ... VERSION would otherwise refuse it as already existing. The drop
+-- is inside the transaction and is rolled back with it, so a pre-installed 0.4.1 comes back.
+DROP EXTENSION IF EXISTS pg_limit_runway;
 CREATE EXTENSION pg_limit_runway VERSION '0.3.0';
 \o
 SELECT plan(10);

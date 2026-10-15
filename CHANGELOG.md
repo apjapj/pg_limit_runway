@@ -23,7 +23,11 @@ mixed-case parent gives `"Events Tbl_20260301"` and not `"Events Tbl"_20260301`.
   0.3.0 runs both update scripts in order and the 0.4.0 re-grant note below still applies to it.
 - `test/05_upgrade.sql` is new, and is the first thing in the repository to execute a
   `pg_limit_runway--X--Y.sql` at all: it creates 0.3.0, updates through the chain, and asserts the
-  changelog's promises, including that a monitor role's grant is gone until it is re-issued.
+  changelog's promises, including that a monitor role's grant is gone until it is re-issued. It drops
+  the extension before it creates 0.3.0, so it runs whether or not the server already carries one:
+  the Forgejo scenario jobs install 0.4.1 before `pg_prove`, and a bare `CREATE EXTENSION ... VERSION
+  '0.3.0'` refused it as already existing, a red run `ci/job.sh` (which does not pre-install) could
+  not reproduce.
 - `test/04_command.sql` grows a quoted schema and one quoted fixture of each kind the command builds
   by splitting the object, plus an order assertion, a note assertion and a 0.5-set parity assertion.
 - The scenario s4 now prints the command the Act stage builds for its foreign key, so the statement
@@ -39,6 +43,10 @@ mixed-case parent gives `"Events Tbl_20260301"` and not `"Events Tbl"_20260301`.
   inside its range, if another workflow runs a version the matrix does not, or if a scenario has no
   committed evidence for a matrix version. Both CI lint jobs now run `make lint`, so a check added
   to the Makefile cannot be missing from CI: two were.
+- `CONTRIBUTING.md` records the convention the remaining "measured on 14 and 18" sentences follow: a
+  past measurement names the versions it was measured on and is left as written, while a coverage
+  claim names the matrix range, 14 to 18. Its own test list also had a stale count, `test/04_command.sql`
+  as `plan(42)` against the `plan(43)` it now is.
 
 ## 0.4.0 (2026-10-15)
 

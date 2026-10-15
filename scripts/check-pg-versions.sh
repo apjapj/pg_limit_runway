@@ -17,6 +17,14 @@
 # A workflow on a platform that cannot run every version is a gap stated in that workflow, not a
 # failure here: only the versions a workflow actually runs are compared, and they must be a subset
 # of the matrix.
+#
+# What this does not catch. Rule 2 reads a version only where another workflow names it as an evidence
+# glob (.pgN.txt); a workflow that pins a version any other way is not read, so the subset is proved
+# for the versions it can see and not for the ones it cannot. Contiguity proves there is no hole
+# inside the range, not that the range starts at the supported floor: that is what
+# check-pg-matrix-claims.sh reads, from the range the documents state. And a prerelease such as
+# "19beta4" is folded to its major, 19, so it counts as the 19 line and would then require committed
+# 19 evidence before this passes.
 set -eu
 
 die() { echo "  FAIL  $*" >&2; exit 1; }
