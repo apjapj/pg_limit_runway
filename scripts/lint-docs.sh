@@ -105,6 +105,38 @@ else
     fi
 fi
 
+# A document can name the wrong version as "the current release" while using none of the banned
+# phrases above. SECURITY.md did exactly that: its supported-versions table called 0.2.1 the
+# current release four releases after it stopped being one, and every check above passed, because
+# they read version tokens and banned phrases, never a claim about which version is current. The
+# .control default_version is the one place the current version is declared, so a "current
+# release" claim must name it. This is the check the release-state one above cannot make.
+step "a version a document calls the current release is the .control default_version"
+if [ -n "$ver" ]; then
+    cur_bad=""
+    for f in $CLAIM_DOCS; do
+        [ -f "$f" ] || continue
+        while IFS= read -r hit; do
+            [ -n "$hit" ] || continue
+            ln=${hit%%:*}
+            text=${hit#*:}
+            # Only a table row makes a machine-readable "this version is current" claim. Prose that
+            # says a document once named a version current is history, not a claim, so it is skipped.
+            printf '%s\n' "$text" | grep -qE '^[[:space:]]*\|' || continue
+            v=$(printf '%s\n' "$text" | grep -oE 'v?[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1 | sed 's/^v//')
+            [ -n "$v" ] || continue
+            [ "$v" = "$ver" ] || cur_bad="$cur_bad $f:$ln($v)"
+        done < <(grep -nE 'current release' "$f" 2>/dev/null || true)
+    done
+    if [ -z "$cur_bad" ]; then
+        ok "every 'current release' claim names $ver, the .control default_version"
+    else
+        bad "the .control default_version is $ver, but these call a different version current:$cur_bad"
+    fi
+else
+    ok "no .control default_version, so there is no current version to claim"
+fi
+
 # Every release and update script must be installed: either listed literally in DATA, or
 # covered by a wildcard in the Makefile. pg_lock_tree installs update paths via a UPGRADES
 # wildcard; runway lists them in DATA. Both are correct, so both are accepted.
@@ -156,6 +188,21 @@ if [ -n "$ext" ] && [ -f Makefile ]; then
       else
           bad "these are on disk and in DATA but NOT in scenarios/install-extension.sh's FILES list, so a scenario container would not get them:$missing_ie"
       fi
+  fi
+
+  # Every release and update script opens with a \echo guard, so that sourcing one in psql aborts
+  # with "Use ALTER EXTENSION ..." instead of failing later on @extschema@ or, worse, running part
+  # of itself. 0.4.0--0.4.1 shipped without it, the only such file, and nothing caught it.
+  step "every release and update script carries its \\echo guard"
+  noguard=""
+  for f in "${ext}"--*.sql; do
+      [ -e "$f" ] || continue
+      grep -q '^\\echo Use' "$f" || noguard="$noguard $(basename "$f")"
+  done
+  if [ -z "$noguard" ]; then
+      ok "every release and update script opens with a \\echo guard"
+  else
+      bad "these would be sourced in psql and only fail later, so add the \\echo guard:$noguard"
   fi
 fi
 

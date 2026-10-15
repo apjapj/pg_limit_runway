@@ -19,7 +19,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
 CREATE EXTENSION IF NOT EXISTS pg_limit_runway;
 \o
-SELECT plan(42);
+SELECT plan(43);
 
 -- ---------------------------------------------------------------- the objects
 SELECT has_function('limit_runway_command', ARRAY['numeric'], 'limit_runway_command(numeric) exists');
@@ -83,6 +83,10 @@ SELECT is((SELECT tier || ' | ' || command
              FROM limit_runway_command_row(1, 'sequence', '"lr C"."Mixed Table".id', NULL, NULL, NULL)),
           'act | ALTER TABLE "lr C"."Mixed Table" ALTER COLUMN id TYPE bigint;',
           'an object the finder already quoted is quoted once, not twice: the derivation unquotes it first');
+SELECT is((SELECT tier || ' | ' || command
+             FROM limit_runway_command_row(1, 'sequence', '"lr D"."a.b".id', NULL, NULL, NULL)),
+          'act | ALTER TABLE "lr D"."a.b" ALTER COLUMN id TYPE bigint;',
+          'a dot inside a quoted name is not a separator: parse_ident keeps "a.b" as one identifier');
 SELECT is((SELECT tier || ' | ' || command
              FROM limit_runway_command_row(1, 'foreign key', 'lr_c.child.parent_id', NULL, NULL, NULL)),
           'act | ALTER TABLE lr_c.child ALTER COLUMN parent_id TYPE bigint;',

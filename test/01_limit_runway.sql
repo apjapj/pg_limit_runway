@@ -1,9 +1,10 @@
 -- test/01_limit_runway.sql: the objects, their shape, the grants, and the sequence rules on fixtures built
 -- here.
 --
--- The scenario suite (scenarios/run.sh) checks each finding against a real fixture on 14 and 18; this
--- file pins what a scenario does not: the columns, that nothing writes, that nothing is open to PUBLIC,
--- what a role without grants and a role without privileges get, and the invariants a pager depends on.
+-- The scenario suite (scenarios/run.sh) checks each finding against a real fixture on every version the
+-- matrix covers (14 to 18); this file pins what a scenario does not: the columns, that nothing writes,
+-- that nothing is open to PUBLIC, what a role without grants and a role without privileges get, and the
+-- invariants a pager depends on.
 -- Every check filters to objects made here, or holds for any row, so other objects on the server cannot
 -- turn it red. All of it runs in one transaction and is rolled back.
 \set ON_ERROR_STOP 1

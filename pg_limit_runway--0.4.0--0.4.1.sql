@@ -1,20 +1,24 @@
-/* pg_limit_runway--0.4.0--0.4.1.sql
- *
- * 0.4.1 fixes one thing: limit_runway_command_row() quoted an already-quoted name a second time.
- *
- * The finding's object is built by the finder with %I, so it arrives quoted. 0.4.0 split it on '.' and
- * applied %I to each part, so any name that needed quoting came back as """Mixed""" instead of
- * "Mixed": a statement naming an object that does not exist, which is the first rule of docs/act.md
- * broken. The replacement recovers the names with parse_ident(), which understands quoting and dots
- * inside a quoted name, and quotes each exactly once, the partition's date suffix inside the quotes.
- * The xid and multixact notes gain one clause: VACUUM cannot run inside a transaction block, so the
- * psql \gexec path must not be wrapped in BEGIN.
- *
- * A SQL function's row type is part of its signature, and it does not change here, so this is a
- * CREATE OR REPLACE of one body: no DROP, and no grant taken with it. limit_runway_findings(), the
- * limit_runway view and limit_runway_text() are untouched and keep their grants. The comment and the
- * PUBLIC REVOKE are restated because CREATE OR REPLACE does not carry them.
- */
+-- pg_limit_runway--0.4.0--0.4.1.sql
+--
+-- 0.4.1 fixes one thing: limit_runway_command_row() quoted an already-quoted name a second time.
+--
+-- The finding's object is built by the finder with %I, so it arrives quoted. 0.4.0 split it on '.' and
+-- applied %I to each part, so any name that needed quoting came back as """Mixed""" instead of
+-- "Mixed": a statement naming an object that does not exist, which is the first rule of docs/act.md
+-- broken. The replacement recovers the names with parse_ident(), which understands quoting and dots
+-- inside a quoted name, and quotes each exactly once, the partition's date suffix inside the quotes.
+-- The xid and multixact notes gain one clause: VACUUM cannot run inside a transaction block, so the
+-- psql \gexec path must not be wrapped in BEGIN.
+--
+-- A SQL function's row type is part of its signature, and it does not change here, so this is a
+-- CREATE OR REPLACE of one body: no DROP, and no grant taken with it. limit_runway_findings(), the
+-- limit_runway view and limit_runway_text() are untouched and keep their grants. The comment and the
+-- PUBLIC REVOKE are restated because CREATE OR REPLACE does not carry them.
+--
+-- Complain if this file is sourced in psql rather than loaded by ALTER EXTENSION, as every other
+-- release and update script does.
+\echo Use "ALTER EXTENSION pg_limit_runway UPDATE TO '0.4.1'" to load this file. \quit
+
 CREATE OR REPLACE FUNCTION @extschema@.limit_runway_command_row(
   p_rank_class    integer,
   p_kind          text,

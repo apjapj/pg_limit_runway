@@ -43,9 +43,15 @@ images, started with `postgres -c autovacuum_naptime=10s -c log_autovacuum_min_d
 | `s18_sampler_rights` | 0.2: no grant on the history, the sampler refuses and names it; a sequence it cannot read is counted as not established and recorded as nothing | the caller's rights, as Piotr decided |
 | `s19_sampler_cost` | 0.2: one sample over 10,000 sequences records the [100](evidence/s19_sampler_cost.pg18.txt) past 10% and consumes exactly one xid | the budget docs/history.md asked to be measured first |
 
-**PostgreSQL 14 and 18 agree on every scenario except s10**, where `reserved_connections` exists on 18
-only and 14 says so. **Reproducible**: two consecutive runs on each version gave byte-identical evidence
-for all 24 files (now 38, with s13 to s19) with no masking at all, because the scenarios print facts and booleans rather than ids,
+**The evidence is identical across the versions except for two scenarios.** `s10_connection_headroom`
+differs from 16 on, where `reserved_connections` exists and 14 and 15 hold back
+`superuser_reserved_connections` alone (14 and 15 agree, and 16, 17 and 18 agree);
+`s12_sequence_behind_data` differs from 17, where the behind-the-data lookup shows an `Index Cond`
+(14, 15 and 16 agree, and 17 and 18 agree). Every other scenario's files are byte-identical across
+all five versions, and there are 95 committed files in all: one for each scenario on each of 14, 15,
+16, 17 and 18.
+**Reproducible**: two consecutive runs on each version gave byte-identical evidence with no masking at
+all, because the scenarios print facts and booleans rather than ids,
 pids or timestamps. The extension's findings added one: s9's password expiry is set from `now()`, so
 `mask.sh` replaces a run-time timestamp (one with fractional seconds) with `<run-time timestamp>`; s5
 prints only its PASS lines, since its xid ages vary between runs. 0.2 adds a second rule: a projected date, printed to the minute, depends on

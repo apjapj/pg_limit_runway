@@ -92,7 +92,10 @@ correctness one: partition pruning reads the bounds, not the names, and a range 
 uncovered. Trading a day-count walk for a calendar one would need the finding to carry the partition's
 granularity, and a month-start pair is not distinguishable from a week that happens to start on the
 first; the tool does not guess. The `note` says the width is "the same as the last one's", which is
-exactly what the statement does.
+exactly what the statement does. The new partition's name carries the lower bound's date as
+`to_char()` renders it in the session's `TimeZone`, so an operator whose session is not UTC can see
+a name a day off the bound; the bounds are what pruning reads, so this is a naming consequence like
+the width drift, not a correctness one.
 
 The cost is larger than this document first claimed, and the correction is worth stating. This
 function's row type is part of its signature, so the column **cannot** be added with `CREATE OR

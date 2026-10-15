@@ -17,7 +17,7 @@ check that was never seen to fail is not evidence that it can.
 -->
 
 - [ ] `make lint` passes
-- [ ] the tests pass on PostgreSQL 14 and 18
+- [ ] the tests pass on every PostgreSQL version the matrix declares (14 to 18)
 - [ ] if this changes what a scenario prints, `scenarios/evidence/` has been regenerated
       **and the output was the same on three consecutive runs**, because CI compares the
       evidence byte for byte and a non-deterministic capture is a red run nobody can fix

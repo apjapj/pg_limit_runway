@@ -28,6 +28,17 @@ mixed-case parent gives `"Events Tbl_20260301"` and not `"Events Tbl"_20260301`.
   by splitting the object, plus an order assertion, a note assertion and a 0.5-set parity assertion.
 - The scenario s4 now prints the command the Act stage builds for its foreign key, so the statement
   itself is under the byte-identical evidence check.
+- `pg_limit_runway--0.4.0--0.4.1.sql` opens with the `\echo Use "ALTER EXTENSION ..." \quit` guard
+  every other release and update script carries, so sourcing it in psql aborts with the instruction
+  rather than failing later on `@extschema@`.
+- `SECURITY.md`'s supported-versions table had named 0.2.1 as the current release since 0.2.1; it
+  now names 0.4.1, and `scripts/lint-docs.sh` checks a "current release" table row against the
+  control file's `default_version`.
+- Documents that called the tested range "14 and 18" now state the range CI actually runs, 14 to
+  18, and `scripts/check-pg-versions.sh` (run by `make lint`) fails if the matrix skips a version
+  inside its range, if another workflow runs a version the matrix does not, or if a scenario has no
+  committed evidence for a matrix version. Both CI lint jobs now run `make lint`, so a check added
+  to the Makefile cannot be missing from CI: two were.
 
 ## 0.4.0 (2026-10-15)
 

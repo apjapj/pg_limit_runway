@@ -113,7 +113,7 @@ yet". Useful the day it is installed, and it is where the type and catalog logic
 
 Built as `limit_runway_findings(min_used, date_window)` behind both, in the three finding states of
 [docs/ranking.md](docs/ranking.md). Tested by `test/01_limit_runway.sql` (pgTAP) and by every scenario,
-which asserts the extension's finding against its fixture, on 14 and 18. What building it changed:
+which asserts the extension's finding against its fixture, on 14 to 18. What building it changed:
 
 - The serial finding is a state first: **exhausted** (never a negative count or more than 100%),
   **behind the data** (with the `setval` to run by hand), **cycled into existing keys** (no `setval`

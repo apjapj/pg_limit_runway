@@ -18,7 +18,7 @@ what "materially worse" means for a limit with a date.
 limit_runway_command(min_used numeric DEFAULT 0.5)
   RETURNS TABLE (
     tier     text,   -- 'plan' | 'schedule' | 'act'
-    kind     text,   -- 'sequence', 'xid wraparound', 'partition', ...
+    kind     text,   -- 'sequence', 'xid', 'partition', ...
     object   text,   -- the qualified name or identity the finding carries
     command  text,   -- one runnable statement, always the least destructive that can work
     note     text    -- the cost, or why this is not the fix

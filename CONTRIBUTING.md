@@ -2,7 +2,7 @@
 
 Short version of what CI runs and what it will not catch for you. `pg_lock_tree`'s
 CONTRIBUTING.md is the long version and is worth reading once; this file is what
-applies to a repository with 19 scenarios, 148 tests and thirteen release and update scripts.
+applies to a repository with 19 scenarios, 149 tests and thirteen release and update scripts.
 
 ## Make targets
 
@@ -10,12 +10,13 @@ applies to a repository with 19 scenarios, 148 tests and thirteen release and up
 |---|---|---|
 | `make install` | Installs the control file and every release and update script in `DATA` via PGXS. | A superuser shell and the server headers (`postgresql-server-dev-NN`). |
 | `make prove` | `pg_prove --dbname $(TESTDB) test/*.sql`. Default `TESTDB` is `postgres`; override it with `make prove TESTDB=...`. | An installed extension and a running server. The libpq variables in your environment pick the server. |
-| `make lint` | Three scripts, no database: `scripts/lint-docs.sh`, `scenarios/check-evidence.sh`, `scripts/check-workflows.sh`. | Nothing. Safe anywhere, cheap enough for a pre-commit hook. |
+| `make lint` | The database-free checks, listed in the `lint` target rather than here: `scripts/lint-docs.sh`, `scripts/check-evidence-claims.sh`, `scripts/check-pg-matrix-claims.sh`, `scripts/check-pg-versions.sh`, `scenarios/check-evidence.sh` and `scripts/check-workflows.sh`. | Nothing. Safe anywhere, cheap enough for a pre-commit hook. |
 
-CI runs `make lint` and the tests on PostgreSQL 14 and 18, and runs the scenario suite in
-a container built from `ci/Dockerfile`. It does not run `make install` against your
-machine, so an install that works in CI and not locally is a bug in the `DATA` list or in
-`scenarios/install-extension.sh`, and both are checked by the lint.
+CI runs `make lint` and the tests on every PostgreSQL version the matrix declares (14 to
+18), and runs the scenario suite in a container built from `ci/Dockerfile`. It does not
+run `make install` against your machine, so an install that works in CI and not locally is
+a bug in the `DATA` list or in `scenarios/install-extension.sh`, and both are checked by
+the lint.
 
 ## The rules a change must not break
 
@@ -119,7 +120,8 @@ evidence that it can.
 4. Update the README status line and any document that names the version. The lint fails
    if a document claims the release is untagged or unreleased while a tag exists, and
    fails if the README header does not mention the current version.
-5. `make lint`, `make prove` on 14 and 18, and the scenario suite green on both.
+5. `make lint`, `make prove` on every version the matrix declares (14 to 18), and the
+   scenario suite green on each.
 6. Tag it, one name at a time, never with `--tags`. A released tag is never edited,
    never amended and never moved.
 
@@ -141,11 +143,12 @@ quietly break the posture the others keep:
   the repository, creates a release, or needs a wider token. Stating it means a later
   change cannot quietly widen it, and it stops a workflow inheriting whatever the
   repository default happens to be.
-- **The Forgejo and GitHub copies are kept deliberately parallel.** They differ only in
-  `runs-on`, the job image note and the log-retention sentence. They are not kept in step
-  by a generator, because the point of the second copy is that the public repository
-  proves what the private one proves, and a generator is one more thing that can be
-  right while both copies are wrong. When you change one, change the other, and say in the
+- **The Forgejo and GitHub copies are kept deliberately parallel.** They differ only where
+  the platforms force it: `runs-on`, the job image note, the log-retention sentence, and
+  the set of PostgreSQL versions each platform's runners can run. They are not kept in
+  step by a generator, because the point of the second copy is that the public repository
+  proves what the private one proves, and a generator is one more thing that can be right
+  while both copies are wrong. When you change one, change the other, and say in the
   commit that you did.
 
 ## House style
