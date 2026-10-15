@@ -21,8 +21,9 @@ SELECT has_function('limit_runway_findings', ARRAY['numeric', 'interval'], 'limi
 SELECT has_function('limit_runway_text', ARRAY['numeric', 'interval'], 'limit_runway_text(numeric, interval) exists');
 SELECT columns_are('limit_runway',
   ARRAY['rank_class', 'rank_label', 'kind', 'object', 'current_value', 'limit_value', 'used_fraction',
-        'until_date', 'state', 'detail', 'then', 'unknowns'],
-  'limit_runway has the columns docs/ranking.md describes, including state, then and unknowns');
+        'until_date', 'state', 'detail', 'then', 'unknowns', 'from_date'],
+  'limit_runway has the columns docs/ranking.md describes, including state, then and unknowns, and '
+  '0.4''s from_date, the last partition''s lower bound, appended so every earlier column keeps its place');
 -- 0.2: the sampler and the pruner write, so they are VOLATILE; 0.3: so are the two senders, which write
 -- state and NOTIFY. Nothing else is, and nothing runs as its owner. limit_runway_urgency() only reads,
 -- so it is STABLE and is not here.

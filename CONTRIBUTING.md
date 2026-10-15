@@ -2,7 +2,7 @@
 
 Short version of what CI runs and what it will not catch for you. `pg_lock_tree`'s
 CONTRIBUTING.md is the long version and is worth reading once; this file is what
-applies to a repository with 19 scenarios, 71 tests and five release and update scripts.
+applies to a repository with 19 scenarios, 131 tests and eleven release and update scripts.
 
 ## Make targets
 
@@ -41,9 +41,9 @@ change that breaks one will go red rather than pass quietly.
 
 ## Tests
 
-`test/01_limit_runway.sql` is `plan(38)` and `test/02_history.sql` is `plan(33)`. The
-plans must match the assertion counts; the lint does not check that here, so if you add
-an assertion, count it.
+`test/01_limit_runway.sql` is `plan(38)`, `test/02_history.sql` is `plan(33)`, `test/03_notify.sql` is
+`plan(25)` and `test/04_command.sql` is `plan(35)`. The plans must match the assertion counts; the lint
+does not check that here, so if you add an assertion, count it.
 
 ### A test that cannot fail is not a test
 

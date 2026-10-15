@@ -6,10 +6,10 @@
 **What will break next.** Every hard limit in the database, and the date each one is reached.
 
 Part of [pg_incident_watch](https://github.com/apjapj/pg_incident_watch). Pure SQL, `CREATE EXTENSION pg_limit_runway`, no
-restart, no `shared_preload_libraries`. Status: **0.3.0**, tagged `v0.3.0`, with history, projected
-dates and alerting, tested on PostgreSQL 14 to 18. Install and grants: [INSTALL.md](INSTALL.md). What
-changed in each release: [CHANGELOG.md](CHANGELOG.md). Changing it or releasing it:
-[CONTRIBUTING.md](CONTRIBUTING.md).
+restart, no `shared_preload_libraries`. Status: **0.4.0**, tagged `v0.4.0`, with history, projected
+dates, alerting and the statements to act on them, tested on PostgreSQL 14 to 18. Install and grants:
+[INSTALL.md](INSTALL.md). What changed in each release: [CHANGELOG.md](CHANGELOG.md). Changing it or
+releasing it: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Overview
 
@@ -150,13 +150,15 @@ scenarios, s15 to s19, and `test/02_history.sql`. What building it changed:
 `SELECT max(id)` on large tables, which is why columns without a sequence (application-generated
 keys) are out of scope for v1 and should be listed as "not watched" rather than silently skipped.
 
-### 6. Act and detect
+### 6. ~~Act and detect~~ **Done: 0.3.0 alerting, 0.4.0 the command**
 
-`limit_runway_command()` and `limit_runway_notify()` / `_notify_resolved()` under the shared
-contract. Alert on time windows, not percentages: "within 30 days" is the trigger, and escalation is
-the window halving (30, 15, 7, 3, 1), the same doubling idea pg_lock_tree uses for waits, run in
-reverse. The contract is settled in [docs/command.md](docs/command.md): the five edges, the three tier
-labels the command carries, and what a finding with no date does instead.
+`limit_runway_command()` is the Act stage: for each finding it returns the least destructive runnable
+statement, its tier and its cost, in `docs/act.md`'s contract, and `limit_runway_notify()` /
+`_notify_resolved()` are the Detect stage. Alert on time windows, not percentages: "within 30 days" is
+the trigger, and escalation is the window halving (30, 15, 7, 3, 1), the same doubling idea pg_lock_tree
+uses for waits, run in reverse. The contract is settled in [docs/command.md](docs/command.md): the five
+edges, the three tier labels the command carries, and what a finding with no date does instead. What
+building it changed is in the changelog for each release.
 
 ### 7. Docs, grants and the matrix
 

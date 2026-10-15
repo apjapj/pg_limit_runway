@@ -1,9 +1,9 @@
 # command and alerting: the Act and Detect contract, settled before any code
 
-**Status: not implemented.** This is the plan for `limit_runway_command()`, `limit_runway_notify()`
-and `limit_runway_notify_resolved()`, written down before any SQL so the next session starts from
-decisions rather than from questions. `README.md` step 6 states the trigger and the ladder; this
-document is the authority for everything it does not.
+**Status: implemented.** `limit_runway_notify()` and `limit_runway_notify_resolved()` shipped in 0.3.0
+and `limit_runway_command()` in 0.4.0. This is the contract for all three, written down before any SQL
+so the work started from decisions rather than from questions. `README.md` step 6 states the trigger and
+the ladder; this document is the authority for everything it does not.
 
 The shared payload contract is [ALERTS.md](https://github.com/apjapj/pg_incident_watch) in
 `pg_incident_watch`, and it is not negotiable here: the five required keys, the `event` vocabulary,
@@ -191,14 +191,21 @@ needing action, so the two cannot drift.
 ## What must not change
 
 - `limit_runway`, `limit_runway_findings()`, `limit_runway_text()` and the history functions keep
-  their shapes. Alerting reads `limit_runway_findings()`; it does not alter it.
+  their shapes, with one decided exception: 0.4.0's additive `from_date` column on the findings and the
+  view, so `limit_runway_command()` can build a partition with an exact width (docs/act.md). Alerting
+  reads `limit_runway_findings()`; it does not alter it.
 - No query text and no credentials in a payload, per the contract's rule 5. A password finding names
   the role and the date and never the password, which is what `README.md` already promises.
-- Version: this is `0.3.0`, a new release script and a new update path. It is not an edit to `0.2.2`,
-  which is released and tagged.
+- Version: each stage is a new release and a new update path, not an edit to a released version. The
+  Detect stage is 0.3.0; the Act stage is 0.4.0, whose update drops and recreates the findings function
+  and the two readers that depend on it, and restates their grants (docs/act.md has why).
 
-## The next concrete step
+## What shipped, and the one thing left open
 
-Write the pgTAP test for the ladder and the silence half of it, against the functions absent so it
-fails loudly, then add `limit_runway_notify()` to make it pass. The scenarios for `command()` follow,
-one per kind, each asserting the tier and that the command is a single statement.
+The ladder and its silence half are `test/03_notify.sql`, written against the functions absent; the Act
+stage is `test/04_command.sql`, written the same way, one fixture of each kind, with the internal
+per-row derivation carrying the kinds a single transaction cannot build. Both are in 0.4.0 and 0.3.0.
+
+Left open on purpose: `from_date` is the only field the command needed and did not have, so it is the
+only one added. A limit whose finding still cannot build a complete statement produces no row rather
+than a placeholder, which is the first rule in docs/act.md, not a gap to close later.

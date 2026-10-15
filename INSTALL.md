@@ -15,7 +15,7 @@
 ```bash
 git clone https://github.com/apjapj/pg_limit_runway.git
 cd pg_limit_runway
-sudo make install            # copies the control file and the 0.1, 0.2, 0.2.1, 0.1--0.2 and 0.2--0.2.1 scripts
+sudo make install            # copies the control file and every release and update script
 ```
 
 ```sql
@@ -28,6 +28,13 @@ slots, connections and passwords are cluster-wide and appear in every database i
 
 From 0.1: `ALTER EXTENSION pg_limit_runway UPDATE TO '0.2';`. It adds the history and replaces
 `limit_runway_findings()` in place, so the grants below survive it.
+
+From 0.3.0: `ALTER EXTENSION pg_limit_runway UPDATE TO '0.4.0';`. It adds `limit_runway_command()` and
+the `from_date` column on the findings. A `RETURNS TABLE` function's row type cannot be changed in
+place, so this update drops and recreates `limit_runway_findings()`, and with it the `limit_runway` view
+and `limit_runway_text()`, which depend on it. Dropping them drops their grants: re-issue
+`GRANT SELECT ON limit_runway` and `GRANT EXECUTE ON FUNCTION limit_runway_text(...)` (and on
+`limit_runway_command(...)` if you want it) after updating. The next section lists them.
 
 ## Sampling, for dates (0.2)
 
@@ -64,6 +71,8 @@ the same convention as pg_lock_tree and pg_bloat_cause. The minimum is:
 GRANT SELECT ON limit_runway TO monitoring;
 GRANT EXECUTE ON FUNCTION limit_runway_findings(numeric, interval),
                           limit_runway_text(numeric, interval) TO monitoring;
+-- to run the statements the Act stage returns (paste them, or SELECT command ... \gexec):
+GRANT EXECUTE ON FUNCTION limit_runway_command(numeric) TO monitoring;
 GRANT pg_read_all_stats TO monitoring;       -- connection counts (pg_monitor includes it)
 GRANT SELECT ON limit_runway_history TO monitoring;   -- rates and projected dates (0.2)
 ```
@@ -82,7 +91,7 @@ What each one is for, and what the role gets without it:
 
 | Grant | Why | Without it |
 |---|---|---|
-| `SELECT ON limit_runway` and `EXECUTE` on both functions | PostgreSQL checks a function called inside a view against the role *using* the view, so `SELECT` alone still fails on `limit_runway_findings()` | refused: `permission denied` |
+| `SELECT ON limit_runway` and `EXECUTE` on the readers (and `EXECUTE` on `limit_runway_command()` to run the statements) | PostgreSQL checks a function called inside a view against the role *using* the view, so `SELECT` alone still fails on `limit_runway_findings()` | refused: `permission denied` |
 | `pg_read_all_stats` | to see which sessions are client connections, and whose. Measured on 14 and 18: without it a role sees other sessions with their type, user and database hidden, and would count 0 connections of N | one row, connections "not established", and no counts |
 | `SELECT ON limit_runway_history` (0.2) | rates and projected dates are fitted to the samples | one row, rates "not established", and 0.1's findings otherwise |
 | `SELECT` on sequences | reading a sequence's position (its `last_value` and `is_called`) needs it | one row naming the sequences it cannot read, "not established" |
@@ -93,7 +102,9 @@ What each one is for, and what the role gets without it:
 `limit_runway_project()` keep the default `EXECUTE` for `PUBLIC`: `limit_runway_findings()` calls them
 with its caller's rights, so a role granted the readers must be able to call them, and an update from
 0.1 must not take that away. They show nothing beyond the caller's own privileges: a sequence it cannot
-read comes back with no figures, and the history is behind its own `SELECT` grant.
+read comes back with no figures, and the history is behind its own `SELECT` grant. `limit_runway_command()`
+is closed like the readers, and its internal per-row derivation, `limit_runway_command_row()`, is closed
+too: it is not a helper a caller needs, only the seam the per-kind test uses.
 
 **Why not SECURITY DEFINER.** The functions only read. As definer they would show every sequence and
 every session to any role granted EXECUTE, bypassing the privileges above, and the notes telling a role
