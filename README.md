@@ -155,7 +155,8 @@ keys) are out of scope for v1 and should be listed as "not watched" rather than 
 `limit_runway_command()` and `limit_runway_notify()` / `_notify_resolved()` under the shared
 contract. Alert on time windows, not percentages: "within 30 days" is the trigger, and escalation is
 the window halving (30, 15, 7, 3, 1), the same doubling idea pg_lock_tree uses for waits, run in
-reverse.
+reverse. The contract is settled in [docs/command.md](docs/command.md): the five edges, the three tier
+labels the command carries, and what a finding with no date does instead.
 
 ### 7. Docs, grants and the matrix
 
