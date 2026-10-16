@@ -129,6 +129,12 @@ evidence that it can.
 If a release changes no SQL and exists only so the tag matches the tree, say so
 explicitly in the changelog and in the release notes. 0.2.1 is the precedent.
 
+When a new stable PostgreSQL major is released, the matrix grows: add it to the workflow, commit
+evidence for every scenario on it, widen any document that states the matrix range, and add its
+`<job> (vN)` required status check to the `protect main` ruleset. The matrix and the ruleset are two
+lists of the same versions and must move together: a matrix version with no required check still runs,
+but it cannot block a merge if it goes red.
+
 ## Workflow policy
 
 Three rules every workflow in this repository follows, so a change to one file does not
