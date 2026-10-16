@@ -16,7 +16,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # scripts/lint.sh, not `make lint`: the Makefile needs pgxs.mk to parse, and a container can
       # have pg_config and no server-dev package, which stopped `make lint` here before any check
       # ran. The script is the list of checks, so one added there cannot be forgotten here;
@@ -33,7 +33,7 @@ jobs:
         # run by hand first, with their evidence committed alongside.
         pg: ["14", "15", "16", "17", "18"]
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: |
           sudo apt-get update -q
           sudo apt-get install -y -q postgresql-client libtap-parser-sourcehandler-pgtap-perl
@@ -45,5 +45,5 @@ jobs:
   defects:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: make defects PG=18
