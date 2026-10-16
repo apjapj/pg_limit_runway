@@ -31,6 +31,9 @@ lint:
 	# The matrix has no hole, any other workflow runs only versions the matrix declares, and
 	# every scenario has evidence for every matrix version.
 	./scripts/check-pg-versions.sh
+	# The two CI copies define the same jobs and run the same command for the ones they share,
+	# so "one definition" is enforced and not a convention.
+	./scripts/check-ci-parity.sh
 	./scenarios/check-evidence.sh
 	# Rejects a duplicated mapping key, which PyYAML accepts silently and Forgejo does not.
 	# A workflow with one dispatches no jobs at all and its run reads as a plain failure.
