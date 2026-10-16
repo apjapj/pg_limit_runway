@@ -18,9 +18,22 @@ SCHEMA=lr_scen
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 RUNDIR="$HERE/.run/${PGHOST}_${PGPORT:-5432}"
 mkdir -p "$RUNDIR"
+# The order rules live once, in pg-dev-infra, vendored as scripts/order-rules.sh. val() uses the exact
+# rule, where the row count is known; check-examples.sh uses the plan rule.
+. "$HERE/../scripts/order-rules.sh"
 
 psql_q() { psql -X -q -v ON_ERROR_STOP=1 "$@"; }
-val()    { psql -X -At -v ON_ERROR_STOP=1 -c "$1"; }
+# The exact nondeterministic-order rule, where the row count is known: a statement that returned
+# more than one row and has no ORDER BY, judged by order-rules.sh. The warning goes to a side file,
+# never to stdout or stderr, because run.sh captures both into the evidence. run.sh reads the file.
+val() {
+    local sql=$1 out
+    out=$(psql -X -At -v ON_ERROR_STOP=1 -c "$sql")
+    [ -n "$(order_val_multirow "$sql" "$out")" ] && \
+        printf '%s\t%s\n' "${LR_SCENARIO:-?}" "$(printf '%s' "$sql" | tr '\n\t' '  ' | cut -c1-120)" \
+            >> "$RUNDIR/order-warnings"
+    printf '%s\n' "$out"
+}
 # Run SQL that is EXPECTED to fail, and print the error it gave, so the evidence shows the failure
 # itself rather than a claim about it.
 try_sql() { psql -X -At -v ON_ERROR_STOP=1 -c "$1" 2>&1 | grep -E '^(ERROR|FATAL|psql: error)' | sed 's/^psql: error: [^:]*: //' | head -1; }

@@ -3,6 +3,60 @@
 Versions are listed newest first. Released tags are never edited: a change that needs
 a new entry gets a new version.
 
+## 0.4.1 (2026-10-15)
+
+A quoting fix to the Act stage, and the first test that runs an update path.
+
+`limit_runway_command_row()` split the finding's `object` on `.` and then applied `%I` to each part, but
+the finder builds that object with `%I` already, so any name that needed quoting came back
+double-quoted: `"lr C"."Mixed Table".id` became `"""lr C"""."""Mixed Table""".id`, a statement naming an
+object that does not exist, which is the first rule of [docs/act.md](docs/act.md) broken. A lowercase
+name was unaffected, which is why every 0.4.0 fixture passed. The derivation now recovers the names
+with `parse_ident()`, which also splits a dot inside a quoted name correctly, and quotes each exactly
+once; a new partition's name is one quoted identifier with the date suffix inside the quotes, so a
+mixed-case parent gives `"Events Tbl_20260301"` and not `"Events Tbl"_20260301`. The `xid` and
+`multixact` notes gained one clause: `VACUUM` cannot run inside a transaction block.
+
+- **No re-grant needed.** The function's row type does not change, so this update path is a single
+  `CREATE OR REPLACE FUNCTION` body plus its comment and `REVOKE`: no `DROP`, and no grant taken with
+  it. 0.4.0's drop-and-recreate of the findings function stays as it is; an installation still at
+  0.3.0 runs both update scripts in order and the 0.4.0 re-grant note below still applies to it.
+- `test/05_upgrade.sql` is new, and is the first thing in the repository to execute a
+  `pg_limit_runway--X--Y.sql` at all: it creates 0.3.0, updates through the chain, and asserts the
+  changelog's promises, including that a monitor role's grant is gone until it is re-issued. It drops
+  the extension before it creates 0.3.0, so it runs whether or not the server already carries one:
+  the Forgejo scenario jobs install 0.4.1 before `pg_prove`, and a bare `CREATE EXTENSION ... VERSION
+  '0.3.0'` refused it as already existing, a red run `ci/job.sh` (which does not pre-install) could
+  not reproduce.
+- `test/04_command.sql` grows a quoted schema and one quoted fixture of each kind the command builds
+  by splitting the object, plus an order assertion, a note assertion and a 0.5-set parity assertion.
+- The scenario s4 now prints the command the Act stage builds for its foreign key, so the statement
+  itself is under the byte-identical evidence check.
+- `pg_limit_runway--0.4.0--0.4.1.sql` opens with the `\echo Use "ALTER EXTENSION ..." \quit` guard
+  every other release and update script carries, so sourcing it in psql aborts with the instruction
+  rather than failing later on `@extschema@`.
+- `SECURITY.md`'s supported-versions table had named 0.2.1 as the current release since 0.2.1; it
+  now names 0.4.1, and `scripts/lint-docs.sh` checks a "current release" table row against the
+  control file's `default_version`.
+- Documents that called the tested range "14 and 18" now state the range CI actually runs, 14 to
+  18, and `scripts/check-pg-versions.sh` (run by `make lint`) fails if the matrix skips a version
+  inside its range, if another workflow runs a version the matrix does not, or if a scenario has no
+  committed evidence for a matrix version. Both CI lint jobs now run `make lint`, so a check added
+  to the Makefile cannot be missing from CI: two were.
+- `CONTRIBUTING.md` records the convention the remaining "measured on 14 and 18" sentences follow: a
+  past measurement names the versions it was measured on and is left as written, while a coverage
+  claim names the matrix range, 14 to 18. Its own test list also had a stale count, `test/04_command.sql`
+  as `plan(42)` against the `plan(43)` it now is.
+- `defects/` records the extension's real defects and `make defects` re-injects each one and requires
+  the test that caught it to fail, so the 0.4.0 quoting bug cannot come back unnoticed: the record is
+  the reverse of the 0.4.1 fix, and `test/04` must fail while it is applied. It reports a regression
+  rate, not a one-time check.
+- `ci/job.sh` gained a preflight that names a missing docker CLI or an unanswered daemon before the
+  build, where that failure was previously "failed to connect to the docker API".
+- `scripts/lint-docs.sh` checks the test list now, the way it already checks the scenario count: every
+  `test/*.sql` must be named in `CONTRIBUTING.md` and its `plan(N)` must match the file, so the stale
+  count above cannot come back.
+
 ## 0.4.0 (2026-10-15)
 
 The Act stage: for every finding that needs action, the least destructive statement that can work, with

@@ -6,7 +6,7 @@
 **What will break next.** Every hard limit in the database, and the date each one is reached.
 
 Part of [pg_incident_watch](https://github.com/apjapj/pg_incident_watch). Pure SQL, `CREATE EXTENSION pg_limit_runway`, no
-restart, no `shared_preload_libraries`. Status: **0.4.0**, tagged `v0.4.0`, with history, projected
+restart, no `shared_preload_libraries`. Status: **0.4.1**, tagged `v0.4.1`, with history, projected
 dates, alerting and the statements to act on them, tested on PostgreSQL 14 to 18. Install and grants:
 [INSTALL.md](INSTALL.md). What changed in each release: [CHANGELOG.md](CHANGELOG.md). Changing it or
 releasing it: [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -113,7 +113,7 @@ yet". Useful the day it is installed, and it is where the type and catalog logic
 
 Built as `limit_runway_findings(min_used, date_window)` behind both, in the three finding states of
 [docs/ranking.md](docs/ranking.md). Tested by `test/01_limit_runway.sql` (pgTAP) and by every scenario,
-which asserts the extension's finding against its fixture, on 14 and 18. What building it changed:
+which asserts the extension's finding against its fixture, on 14 to 18. What building it changed:
 
 - The serial finding is a state first: **exhausted** (never a negative count or more than 100%),
   **behind the data** (with the `setval` to run by hand), **cycled into existing keys** (no `setval`
@@ -150,7 +150,7 @@ scenarios, s15 to s19, and `test/02_history.sql`. What building it changed:
 `SELECT max(id)` on large tables, which is why columns without a sequence (application-generated
 keys) are out of scope for v1 and should be listed as "not watched" rather than silently skipped.
 
-### 6. ~~Act and detect~~ **Done: 0.3.0 alerting, 0.4.0 the command**
+### 6. ~~Act and detect~~ **Done: 0.3.0 alerting, 0.4.0 the command, 0.4.1 its quoting**
 
 `limit_runway_command()` is the Act stage: for each finding it returns the least destructive runnable
 statement, its tier and its cost, in `docs/act.md`'s contract, and `limit_runway_notify()` /

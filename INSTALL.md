@@ -6,7 +6,7 @@
 
 | | |
 |---|---|
-| PostgreSQL | **14 or later.** On 13 and earlier `CREATE EXTENSION` refuses, and says why. 14 reaches upstream end of life on 2026-11-12 and stays supported until PostgreSQL 19 is stable. Tested on 14 and 18. Newer features degrade per feature: `reserved_connections` exists on 16 and later, and on 14 and 15 the connection limit counts `superuser_reserved_connections` alone and says so. |
+| PostgreSQL | **14 or later.** On 13 and earlier `CREATE EXTENSION` refuses, and says why. 14 reaches upstream end of life on 2026-11-12 and stays supported until PostgreSQL 19 is stable. Tested on 14 to 18. Newer features degrade per feature: `reserved_connections` exists on 16 and later, and on 14 and 15 the connection limit counts `superuser_reserved_connections` alone and says so. |
 | Preloaded libraries | None. Pure SQL, no restart. |
 | Privileges to install | A superuser, for `CREATE EXTENSION`. |
 
@@ -35,6 +35,11 @@ place, so this update drops and recreates `limit_runway_findings()`, and with it
 and `limit_runway_text()`, which depend on it. Dropping them drops their grants: re-issue
 `GRANT SELECT ON limit_runway` and `GRANT EXECUTE ON FUNCTION limit_runway_text(...)` (and on
 `limit_runway_command(...)` if you want it) after updating. The next section lists them.
+
+From 0.4.0: `ALTER EXTENSION pg_limit_runway UPDATE TO '0.4.1';`. It changes one function body
+(`limit_runway_command_row()`, a quoting fix) with `CREATE OR REPLACE`, so nothing is dropped and no
+grant is affected: the re-grant above is only for the 0.3.0 step. An installation at 0.3.0 updates
+through both in order, and `ALTER EXTENSION pg_limit_runway UPDATE` with no `TO` runs the whole chain.
 
 ## Sampling, for dates (0.2)
 

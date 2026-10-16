@@ -1,5 +1,5 @@
-# .github/workflows/ci.yml: lint (every linked figure is in its evidence file) and the scenario suite on
-# PostgreSQL 14 and 18, the versions with committed evidence, with the pgTAP tests first. Everything a job does is in ci/job.sh.
+# .github/workflows/ci.yml: lint (make lint; every database-free check) and the scenario suite on
+# every stable PostgreSQL version, 14 to 18, with the pgTAP tests first. ci/job.sh does a job's work.
 name: ci
 on:
   push:
@@ -17,9 +17,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - run: ./scripts/check-workflows.sh
-      - run: ./scripts/lint-docs.sh
-      - run: ./scenarios/check-evidence.sh
+      # scripts/lint.sh, not `make lint`: the Makefile needs pgxs.mk to parse, and a container can
+      # have pg_config and no server-dev package, which stopped `make lint` here before any check
+      # ran. The script is the list of checks, so one added there cannot be forgotten here;
+      # scripts/check-ci-parity.sh holds this line to the Forgejo copy's.
+      - run: ./scripts/lint.sh
       - run: for s in scenarios/*.sh ci/*.sh scripts/*.sh; do bash -n "$s" || exit 1; done
   scenarios:
     runs-on: ubuntu-latest
@@ -36,3 +38,12 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y -q postgresql-client libtap-parser-sourcehandler-pgtap-perl
       - run: ./ci/job.sh ${{ matrix.pg }}
+
+  # One command, the same in both copies: check-defects.sh picks container mode here (Docker is on
+  # this runner) and local mode on the Forgejo copy (its runner is a PostgreSQL and has no Docker).
+  # scripts/check-ci-parity.sh holds the two to this. See defects/README.md.
+  defects:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - run: make defects PG=18

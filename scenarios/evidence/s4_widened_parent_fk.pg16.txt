@@ -22,6 +22,9 @@ what pg_limit_runway says
  [failing now] foreign key lr_scen.s4_orders.customer_id: lr_scen.s4_orders.customer_id (integer) can no longer reference new rows of lr_scen.s4_customers: the parent key is at 2147483648, past 2147483647. Then: the limit is reached through the parent: lr_scen.s4_customers.id is bigint.
  PASS finding for lr_scen.s4_orders.customer_id: exhausted (class 1), then %s4_customers.id is bigint%
 
+the command the Act stage builds (limit_runway_command)
+ act | ALTER TABLE lr_scen.s4_orders ALTER COLUMN customer_id TYPE bigint;
+
 expected finding
  s4_orders.customer_id (int4) references s4_customers.id (bigint), which is already past 2147483647:
  new customers can no longer be referenced. A limit on the child column, reached through the parent.

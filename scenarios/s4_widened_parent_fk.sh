@@ -32,6 +32,14 @@ assert_true "the parent's sequence is under 0.001% used" "$(val "SELECT 100.0 * 
 assert_true "an order for the newest customer fails with integer out of range" "$([[ "$err" == *"integer out of range"* ]] && echo t || echo f)"
 finding "lr_scen.s4_%"
 assert_finding lr_scen.s4_orders.customer_id exhausted '%s4_customers.id is bigint%' '' '%past 2147483647%' 1
+say "the command the Act stage builds (limit_runway_command)"
+if use_extension; then
+    while IFS= read -r line; do note "$line"; done \
+        < <(val "SELECT tier || ' | ' || command FROM limit_runway_command(0)
+                   WHERE object = '$SCHEMA.s4_orders.customer_id'")
+else
+    note "pg_limit_runway is not installed on this server; command not checked"
+fi
 say "expected finding"
 note "s4_orders.customer_id (int4) references s4_customers.id (bigint), which is already past 2147483647:"
 note "new customers can no longer be referenced. A limit on the child column, reached through the parent."

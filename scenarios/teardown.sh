@@ -12,5 +12,5 @@ psql_q -c "DROP DATABASE IF EXISTS lr_scen_db" 2>/dev/null
 psql_q -c "DROP SCHEMA IF EXISTS $SCHEMA CASCADE" 2>/dev/null
 # 0.2: the samples, so no scenario inherits a series from another.
 psql_q -c "DO \$t\$ BEGIN IF to_regclass('limit_runway_history') IS NOT NULL THEN TRUNCATE limit_runway_history; END IF; END \$t\$" 2>/dev/null
-for r in $(val "SELECT rolname FROM pg_roles WHERE rolname LIKE 'lr_scen_%'"); do psql_q -c "DROP OWNED BY $r" -c "DROP ROLE IF EXISTS $r" 2>/dev/null; done
+for r in $(val "SELECT rolname FROM pg_roles WHERE rolname LIKE 'lr_scen_%' ORDER BY 1"); do psql_q -c "DROP OWNED BY $r" -c "DROP ROLE IF EXISTS $r" 2>/dev/null; done
 echo "  teardown done"

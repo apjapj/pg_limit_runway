@@ -2,7 +2,7 @@
 
 Short version of what CI runs and what it will not catch for you. `pg_lock_tree`'s
 CONTRIBUTING.md is the long version and is worth reading once; this file is what
-applies to a repository with 19 scenarios, 131 tests and eleven release and update scripts.
+applies to a repository with 19 scenarios, 149 tests and thirteen release and update scripts.
 
 ## Make targets
 
@@ -10,12 +10,19 @@ applies to a repository with 19 scenarios, 131 tests and eleven release and upda
 |---|---|---|
 | `make install` | Installs the control file and every release and update script in `DATA` via PGXS. | A superuser shell and the server headers (`postgresql-server-dev-NN`). |
 | `make prove` | `pg_prove --dbname $(TESTDB) test/*.sql`. Default `TESTDB` is `postgres`; override it with `make prove TESTDB=...`. | An installed extension and a running server. The libpq variables in your environment pick the server. |
-| `make lint` | Three scripts, no database: `scripts/lint-docs.sh`, `scenarios/check-evidence.sh`, `scripts/check-workflows.sh`. | Nothing. Safe anywhere, cheap enough for a pre-commit hook. |
+| `make lint` | `./scripts/lint.sh`, the database-free checks: `scripts/lint-docs.sh`, `scripts/check-evidence-claims.sh`, `scripts/check-pg-matrix-claims.sh`, `scripts/check-pg-versions.sh`, `scripts/check-ci-parity.sh`, `scripts/check-vendored-hashes.sh`, `scenarios/check-evidence.sh` and `scripts/check-workflows.sh`. Run the script, not `make lint`, where the Makefile cannot parse for want of a PostgreSQL toolchain. | Nothing. Safe anywhere, cheap enough for a pre-commit hook. |
+| `make defects` | Re-injects every defect in `defects/` and requires the test that caught it to fail again; `PG=18` picks the server image. | Docker, `pg_prove` and `patch`. Not part of `make lint`. |
+| `make check-examples` | Parses and plans every SQL example in the documentation's fenced blocks, against a server with the extension installed. | A server with the extension installed. Not part of `make lint`. |
 
-CI runs `make lint` and the tests on PostgreSQL 14 and 18, and runs the scenario suite in
-a container built from `ci/Dockerfile`. It does not run `make install` against your
-machine, so an install that works in CI and not locally is a bug in the `DATA` list or in
-`scenarios/install-extension.sh`, and both are checked by the lint.
+CI runs `./scripts/lint.sh` and the tests on every PostgreSQL version the matrix declares (14 to
+18), and runs the scenario suite in a container built from `ci/Dockerfile`. The lint is a script
+rather than `make lint` because a CI container can have `pg_config` and no `pgxs.mk`, which stops
+`make` at the Makefile's `include $(PGXS)` before any check runs. A separate
+`defects` job in each workflow runs `make defects PG=18`, the same command in both copies;
+`scripts/check-ci-parity.sh` (in the lint) fails if they drift. It does not
+run `make install` against your machine, so an install that works in CI and not locally is
+a bug in the `DATA` list or in `scenarios/install-extension.sh`, and both are checked by
+the lint.
 
 ## The rules a change must not break
 
@@ -42,8 +49,9 @@ change that breaks one will go red rather than pass quietly.
 ## Tests
 
 `test/01_limit_runway.sql` is `plan(38)`, `test/02_history.sql` is `plan(33)`, `test/03_notify.sql` is
-`plan(25)` and `test/04_command.sql` is `plan(35)`. The plans must match the assertion counts; the lint
-does not check that here, so if you add an assertion, count it.
+`plan(25)`, `test/04_command.sql` is `plan(43)` and `test/05_upgrade.sql` is `plan(10)`. The plans must
+match the assertion counts, and `scripts/lint-docs.sh` checks each number above against its file and
+fails if a test file is not listed here, so update this list when a plan changes.
 
 ### A test that cannot fail is not a test
 
@@ -108,6 +116,12 @@ evidence that it can.
 # 4. restore, reinstall, and run it again to see it pass
 ```
 
+That is for the check you are writing. For a defect that was already fixed, the record is kept so
+the catching is permanent: every defect the extension has had is in `defects/`, and `make defects`
+re-injects each one and requires its test to fail, so a later change that stops catching it is
+reported rather than silently lost. When you fix a bug, keep the test that caught it and save the
+reverse of the fix as `<id>.patch` with its `.meta` beside it; `defects/README.md` says how.
+
 ## Releasing
 
 1. Increment the version. The release script is `pg_limit_runway--<new>.sql`, the
@@ -119,12 +133,19 @@ evidence that it can.
 4. Update the README status line and any document that names the version. The lint fails
    if a document claims the release is untagged or unreleased while a tag exists, and
    fails if the README header does not mention the current version.
-5. `make lint`, `make prove` on 14 and 18, and the scenario suite green on both.
+5. `make lint`, `make prove` on every version the matrix declares (14 to 18), and the
+   scenario suite green on each.
 6. Tag it, one name at a time, never with `--tags`. A released tag is never edited,
    never amended and never moved.
 
 If a release changes no SQL and exists only so the tag matches the tree, say so
 explicitly in the changelog and in the release notes. 0.2.1 is the precedent.
+
+When a new stable PostgreSQL major is released, the matrix grows: add it to the workflow, commit
+evidence for every scenario on it, widen any document that states the matrix range, and add its
+`<job> (vN)` required status check to the `protect main` ruleset. The matrix and the ruleset are two
+lists of the same versions and must move together: a matrix version with no required check still runs,
+but it cannot block a merge if it goes red.
 
 ## Workflow policy
 
@@ -141,14 +162,29 @@ quietly break the posture the others keep:
   the repository, creates a release, or needs a wider token. Stating it means a later
   change cannot quietly widen it, and it stops a workflow inheriting whatever the
   repository default happens to be.
-- **The Forgejo and GitHub copies are kept deliberately parallel.** They differ only in
-  `runs-on`, the job image note and the log-retention sentence. They are not kept in step
-  by a generator, because the point of the second copy is that the public repository
-  proves what the private one proves, and a generator is one more thing that can be
-  right while both copies are wrong. When you change one, change the other, and say in the
+- **The Forgejo and GitHub copies are kept deliberately parallel.** They differ only where
+  the platforms force it: `runs-on`, the job image note, the log-retention sentence, and
+  the set of PostgreSQL versions each platform's runners can run. They are not kept in
+  step by a generator, because the point of the second copy is that the public repository
+  proves what the private one proves, and a generator is one more thing that can be right
+  while both copies are wrong. When you change one, change the other, and say in the
   commit that you did.
 
 ## House style
 
 No em-dashes or en-dashes in any document, comment, script or workflow. The lint checks
 it, and a reader's eye catches it before anything else.
+
+### Versions in prose
+
+CI runs every PostgreSQL version the matrix declares: 14, 15, 16, 17 and 18, all of them,
+with no hole. Two kinds of sentence name versions, and they are not the same claim:
+
+- A document that states **current coverage** names the matrix range, `14 to 18`.
+  `scripts/check-pg-matrix-claims.sh` checks these against the workflow.
+- A document that records a **past measurement** names the versions it was measured on,
+  which may be fewer than the matrix: `measured on 14 and 18` stays as written. Nothing
+  checks these, because the number was true when it was written.
+
+Do not widen a past measurement to look current, and do not narrow a coverage claim to
+the ends of the matrix.

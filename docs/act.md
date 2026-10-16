@@ -1,9 +1,10 @@
 # act: the one statement per limit, and why it is that one
 
-**Status: implemented in 0.4.0.** This is the plan for `limit_runway_command()` that was written before
-the SQL, the way `pg_bloat_cause` planned its measurement function before writing it, and the SQL
-followed it. `docs/command.md` is the authority for the function's shape and its three tiers; this
-document is the authority for what goes in the `command` and `note` columns, one row per limit kind.
+**Status: implemented in 0.4.0, with 0.4.1 fixing how the command quotes a name.** This is the plan for
+`limit_runway_command()` that was written before the SQL, the way `pg_bloat_cause` planned its
+measurement function before writing it, and the SQL followed it. `docs/command.md` is the authority
+for the function's shape and its three tiers; this document is the authority for what goes in the
+`command` and `note` columns, one row per limit kind.
 
 ## What it is
 
@@ -32,9 +33,9 @@ will do to the server, because "the least destructive" is not "free".
 | `sequence`, a column fills it | `ALTER TABLE <tbl> ALTER COLUMN <col> TYPE bigint` | rewrites the whole table under `ACCESS EXCLUSIVE`; the only step that raises the column's limit |
 | `sequence`, no column owns it | `ALTER SEQUENCE <seq> AS bigint` | raises the sequence's own ceiling; if a column fills it, that column is the real limit and must widen too |
 | `foreign key` | `ALTER TABLE <child> ALTER COLUMN <col> TYPE bigint` | rewrites the child table under `ACCESS EXCLUSIVE`; the parent key is already wide |
-| `xid`, per table | `VACUUM (FREEZE) <tbl>` | freezes only rows past `vacuum_freeze_min_age`; it need not lower the age if the old rows are not yet eligible |
-| `xid`, per database | `VACUUM (FREEZE)` | every table in the database; the least destructive step that lowers the age, and it is not cheap |
-| `multixact`, per database | `VACUUM (FREEZE)` | as the xid case. The member-space limit is not established, so it has no command |
+| `xid`, per table | `VACUUM (FREEZE) <tbl>` | freezes only rows past `vacuum_freeze_min_age`; it need not lower the age if the old rows are not yet eligible. `VACUUM` needs no transaction block |
+| `xid`, per database | `VACUUM (FREEZE)` | every table in the database; the least destructive step that lowers the age, and it is not cheap. `VACUUM` needs no transaction block |
+| `multixact`, per database | `VACUUM (FREEZE)` | as the xid case, and it too needs no transaction block. The member-space limit is not established, so it has no command |
 | `partition` | **open, see below** | |
 | `replication slot` | `SELECT pg_drop_replication_slot('<slot>')` | the consumer must be rebuilt from a fresh base backup; the slot is already invalidated or about to be |
 | `connections` | `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE backend_type = 'client backend' AND state = 'idle' AND pid <> pg_backend_pid()` | frees idle client connections only; superusers are exempt from the limit, and busy sessions are left alone |
@@ -51,10 +52,15 @@ the operator's to change by editing the row they paste.
 ## The shape the object column has, and how the command is built
 
 `object` is the same qualified name `limit_runway_findings()` prints, so the command is a `format()`
-over it, not a second lookup. The sequence kind is the one that needs care: the object is the
-**column** when a column fills the sequence (three dotted parts) and the **sequence** when none does
-(two). The command branches on that, which is why the row is built from the finding and not from the
-catalog again.
+over it, not a second lookup. That name is **already quoted**, because the finder builds it with `%I`,
+so the derivation recovers the parts with `parse_ident()` and quotes each exactly once: `%I` applied to
+a part that is already `"Mixed"` would produce `"""Mixed"""`, naming an object that does not exist.
+`parse_ident()` also splits a dot inside a quoted name correctly, which a `string_to_array()` on `'.'`
+does not. The sequence kind is the one that needs care: the object is the **column** when a column
+fills the sequence (three parts) and the **sequence** when none does (two). The command branches on
+that, which is why the row is built from the finding and not from the catalog again. A partition's new
+name is the last bound's date suffix inside one `%I`, so a mixed-case parent becomes
+`"Events Tbl_20260301"` and not `"Events Tbl"_20260301`.
 
 ## The one open question: partitions, now decided
 
@@ -77,6 +83,19 @@ bound's date, because the finding carries no name for the last partition. The al
 placeholder or no command at all, were rejected: the first breaks the "runnable or not there at all"
 rule and the second loses the thing the tool is for. A partition whose lower bound is `MINVALUE` has no
 quoted bound to read, so it yields no command either, for the same first rule.
+
+The width is one interval of **days**, because the finding carries two bounds and nothing else, so a
+monthly partition calendar drifts. A February partition is 28 days wide, so the next one ends on
+29 March and is named for 1 March; the bound after it is 26 April, and each step moves further off a
+month boundary while the ranges stay contiguous. That is a naming and operations consequence, not a
+correctness one: partition pruning reads the bounds, not the names, and a range is never left
+uncovered. Trading a day-count walk for a calendar one would need the finding to carry the partition's
+granularity, and a month-start pair is not distinguishable from a week that happens to start on the
+first; the tool does not guess. The `note` says the width is "the same as the last one's", which is
+exactly what the statement does. The new partition's name carries the lower bound's date as
+`to_char()` renders it in the session's `TimeZone`, so an operator whose session is not UTC can see
+a name a day off the bound; the bounds are what pruning reads, so this is a naming consequence like
+the width drift, not a correctness one.
 
 The cost is larger than this document first claimed, and the correction is worth stating. This
 function's row type is part of its signature, so the column **cannot** be added with `CREATE OR
@@ -109,5 +128,9 @@ age, a lost replication slot) are asserted through `limit_runway_command_row()`,
 derivation, with a synthetic finding; the public `limit_runway_command()` is asserted against the
 sequence, foreign-key, partition, password and connection fixtures the transaction can build, so the
 finding and the statement are checked end to end. Every returned statement is asserted to be one
-non-empty, terminated statement naming a real object, and the command list is asserted to be exactly
-the findings that are not "not established", so the two cannot drift.
+non-empty, terminated statement, and, where a fixture builds the finding, to be exactly the statement
+that finding implies; the command list is asserted to be exactly
+the findings that are not "not established", so the two cannot drift. 0.4.1 is the repair of one fault
+those fixtures did not see: every object in `test/04` was a lowercase name, so a name that needed
+quoting was never built. It now has a quoted schema and one quoted fixture of each kind, the internal
+derivation is asserted with an already-quoted object, and the statement is what `psql` runs.

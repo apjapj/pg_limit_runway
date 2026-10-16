@@ -1,0 +1,10 @@
+id=quoting-double
+class=derivation
+found=the 0.4.0 read-only review, 2026-10-15
+fixed=0.4.1
+test=test/04_command.sql
+detail=limit_runway_command_row() split the finding's %I-quoted object on '.' and applied %I to each
+       part again, so a name that needed quoting came back double-quoted ("""Mixed""" rather than
+       "Mixed") and the statement named an object that does not exist. Every 0.4.0 fixture was a
+       lowercase name, so none needed quoting and none caught it; test/04's quoted schema and
+       fixtures do.

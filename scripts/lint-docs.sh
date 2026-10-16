@@ -105,6 +105,38 @@ else
     fi
 fi
 
+# A document can name the wrong version as "the current release" while using none of the banned
+# phrases above. SECURITY.md did exactly that: its supported-versions table called 0.2.1 the
+# current release four releases after it stopped being one, and every check above passed, because
+# they read version tokens and banned phrases, never a claim about which version is current. The
+# .control default_version is the one place the current version is declared, so a "current
+# release" claim must name it. This is the check the release-state one above cannot make.
+step "a version a document calls the current release is the .control default_version"
+if [ -n "$ver" ]; then
+    cur_bad=""
+    for f in $CLAIM_DOCS; do
+        [ -f "$f" ] || continue
+        while IFS= read -r hit; do
+            [ -n "$hit" ] || continue
+            ln=${hit%%:*}
+            text=${hit#*:}
+            # Only a table row makes a machine-readable "this version is current" claim. Prose that
+            # says a document once named a version current is history, not a claim, so it is skipped.
+            printf '%s\n' "$text" | grep -qE '^[[:space:]]*\|' || continue
+            v=$(printf '%s\n' "$text" | grep -oE 'v?[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1 | sed 's/^v//')
+            [ -n "$v" ] || continue
+            [ "$v" = "$ver" ] || cur_bad="$cur_bad $f:$ln($v)"
+        done < <(grep -nE 'current release' "$f" 2>/dev/null || true)
+    done
+    if [ -z "$cur_bad" ]; then
+        ok "every 'current release' claim names $ver, the .control default_version"
+    else
+        bad "the .control default_version is $ver, but these call a different version current:$cur_bad"
+    fi
+else
+    ok "no .control default_version, so there is no current version to claim"
+fi
+
 # Every release and update script must be installed: either listed literally in DATA, or
 # covered by a wildcard in the Makefile. pg_lock_tree installs update paths via a UPGRADES
 # wildcard; runway lists them in DATA. Both are correct, so both are accepted.
@@ -156,6 +188,21 @@ if [ -n "$ext" ] && [ -f Makefile ]; then
       else
           bad "these are on disk and in DATA but NOT in scenarios/install-extension.sh's FILES list, so a scenario container would not get them:$missing_ie"
       fi
+  fi
+
+  # Every release and update script opens with a \echo guard, so that sourcing one in psql aborts
+  # with "Use ALTER EXTENSION ..." instead of failing later on @extschema@ or, worse, running part
+  # of itself. 0.4.0--0.4.1 shipped without it, the only such file, and nothing caught it.
+  step "every release and update script carries its \\echo guard"
+  noguard=""
+  for f in "${ext}"--*.sql; do
+      [ -e "$f" ] || continue
+      grep -q '^\\echo Use' "$f" || noguard="$noguard $(basename "$f")"
+  done
+  if [ -z "$noguard" ]; then
+      ok "every release and update script opens with a \\echo guard"
+  else
+      bad "these would be sourced in psql and only fail later, so add the \\echo guard:$noguard"
   fi
 fi
 
@@ -212,6 +259,42 @@ if [ -d scenarios ]; then
   fi
 else
   ok "no scenarios/ directory, so there is no scenario count to check"
+fi
+
+# A test plan number is a claim like the scenario count: it says how many assertions a file makes.
+# CONTRIBUTING.md lists them, and until now nothing checked the list, so a file whose plan grew went
+# stale in the one place a reader looks: 0.4.1's list said `plan(42)` for a file the same branch had
+# raised to `plan(43)`. This reads the pairs from CONTRIBUTING.md and the plan from each file.
+step "every test plan in CONTRIBUTING.md matches the plan its file declares"
+if [ -d test ] && [ -f CONTRIBUTING.md ]; then
+    joined=$(tr '\n' ' ' < CONTRIBUTING.md)
+    plan_bad=""
+    listed=""
+    while IFS= read -r claim; do
+        [ -n "$claim" ] || continue
+        f=$(printf '%s' "$claim" | grep -oE '^test/[A-Za-z0-9_]+\.sql')
+        p=$(printf '%s' "$claim" | grep -oE 'plan\([0-9]+\)' | grep -oE '[0-9]+')
+        [ -n "$f" ] || continue
+        b=$(basename "$f")
+        listed="$listed $b"
+        if [ ! -f "$f" ]; then plan_bad="$plan_bad $b(listed but absent)"; continue; fi
+        real=$(grep -m1 -oE 'plan\([0-9]+\)' "$f" | grep -oE '[0-9]+')
+        [ -n "$real" ] || { plan_bad="$plan_bad $b(declares no plan)"; continue; }
+        [ "$p" = "$real" ] || plan_bad="$plan_bad $b(list says $p, the file says $real)"
+    done <<< "$(printf '%s' "$joined" | grep -oE 'test/[A-Za-z0-9_]+\.sql` is `plan\([0-9]+\)')"
+    # The other direction: a test file that is on disk but nowhere in the list is unlisted.
+    for t in test/*.sql; do
+        [ -e "$t" ] || continue
+        b=$(basename "$t")
+        case " $listed " in *" $b "*) ;; *) plan_bad="$plan_bad $b(not listed in CONTRIBUTING)";; esac
+    done
+    if [ -z "$plan_bad" ]; then
+        ok "every test plan matches its file, and every test file is listed"
+    else
+        bad "the test list disagrees with the files:$plan_bad"
+    fi
+else
+    ok "no test/ directory or CONTRIBUTING.md, so there is no test list to check"
 fi
 
 step "house style"
