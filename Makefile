@@ -13,6 +13,10 @@ defects:
 	# Re-inject every recorded defect (defects/) and require the test that caught it to fail
 	# again; a defect the suite no longer catches is a regression and exits non-zero.
 	./scripts/check-defects.sh $(PG)
+check-examples:
+	# Parse and plan the SQL in the documentation's fenced blocks, against a server with the
+	# extension installed. Needs a database, so it is not part of lint.
+	./scripts/check-examples.sh
 lint:
 	# The doc-facts checks, ported from pg_lock_tree's scripts/lint-docs.sh: the version agrees
 	# across control and the newest release and the README header, every SQL file is installed
@@ -31,4 +35,4 @@ lint:
 	# Rejects a duplicated mapping key, which PyYAML accepts silently and Forgejo does not.
 	# A workflow with one dispatches no jobs at all and its run reads as a plain failure.
 	./scripts/check-workflows.sh
-.PHONY: install prove defects lint
+.PHONY: install prove defects check-examples lint
