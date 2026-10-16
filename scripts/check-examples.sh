@@ -31,29 +31,9 @@ EXPECTED_FAILURES=(
     'schema "cron" does not exist|INSTALL.md offers pg_cron as one way to schedule the sampler; it is not required and is not installed here'
 )
 
-# Is the statement's ORDER BY on a unique key? If it is, ties cannot reorder and the result is
-# deterministic. If it is not, the ORDER BY settles the groups but not the order within them, which
-# is the tie-break rule. It answers NO only when it can see the key is not unique: an ORDER BY it
-# cannot parse (a join, an expression) returns YES, so this warns and never fails on a guess.
-order_is_unique() {
-    local stmt=$1 tbl cols cl n
-    tbl=$(printf '%s' "$stmt" | grep -oiE 'FROM +[A-Za-z0-9_."]+' | head -1 | sed -E 's/^FROM +//; s/"//g')
-    cols=$(printf '%s' "$stmt" | grep -oiE 'ORDER BY +[^;]*' | head -1 \
-           | sed -E 's/^ORDER BY +//I; s/ (ASC|DESC)//gI; s/ NULLS (FIRST|LAST)//gI; s/,/ /g; s/"//g; s/ +/ /g')
-    [ -n "$tbl" ] && [ -n "$cols" ] || return 0
-    cl=$(printf '%s' "$cols" | tr ' ' '\n' | grep -v '^$' | sed "s/.*/'&'/" | paste -sd, -)
-    [ -n "$cl" ] || return 0
-    n=$(psql -X -tA -c "
-        SELECT count(*) FROM pg_index i
-          JOIN pg_class c ON c.oid = i.indrelid
-          JOIN pg_namespace ns ON ns.oid = c.relnamespace
-         WHERE i.indisunique
-           AND (ns.nspname || '.' || c.relname = '$tbl' OR c.relname = '$tbl')
-           AND (SELECT array_agg(a.attname) FROM pg_attribute a
-                 WHERE a.attrelid = c.oid AND a.attnum = ANY (i.indkey))
-               <@ (SELECT array_agg(x) FROM unnest(ARRAY[$cl]) x)" 2>/dev/null)
-    [ "${n:-0}" -ge 1 ]
-}
+# The order rules live once, in pg-dev-infra, and are vendored here as scripts/order-rules.sh. This
+# file judges the plan and only warns; scenarios/lib.sh judges the rows and fails.
+. scripts/order-rules.sh
 
 
 if ! psql -X -tAc 'SELECT 1' >/dev/null 2>&1; then
@@ -143,34 +123,17 @@ while IFS=$'\t' read -r file line idx stmt; do
     err=$(psql -X -tA -c "EXPLAIN (COSTS OFF) $stmt" 2>&1 >/dev/null | head -1)
     if [ -z "$err" ]; then
         checked=$((checked + 1))
-        # It plans. Now judge the order, which is a warning here and not a failure: EXPLAIN shows the
-        # plan but not the rows. The scenario capture, where the row count is known, is the exact rule.
-        plan=$(psql -X -tA -c "EXPLAIN (COSTS OFF) $stmt" 2>/dev/null)
-        top=$(printf '%s\n' "$plan" | sed -n '1s/^ *//p')
-        case "$top" in
-            Sort*|"Incremental Sort"*)
-                if ! order_is_unique "$stmt"; then
-                    warns=$((warns + 1))
-                    printf '  WARN  %s:%s  tie-break: the ORDER BY is not on a unique key, so tied rows have no settled order\n          %s\n' \
-                        "$file" "$line" "$stmt"
-                fi ;;
-            Aggregate*|Result*)
-                : ;;   # one row by construction
-            Limit*)
-                if ! printf '%s' "$stmt" | grep -qiE 'LIMIT 1([^0-9]|$)'; then
-                    warns=$((warns + 1))
-                    printf '  WARN  %s:%s  nondeterministic-order: a Limit without a unique order may return rows in any order\n          %s\n' \
-                        "$file" "$line" "$stmt"
-                fi ;;
-            *)
-                if printf '%s' "$stmt" | grep -qE '(FROM|JOIN) +[A-Za-z0-9_.]+ *\('; then
-                    :   # a set-returning function: its own order, not the planner's to settle
-                else
-                    warns=$((warns + 1))
-                    printf '  WARN  %s:%s  nondeterministic-order: the plan is not ordered (%s) and may return more than one row in any order\n          %s\n' \
-                        "$file" "$line" "${top%% *}" "$stmt"
-                fi ;;
-        esac
+        # It plans. The rule is judged from the plan (order_explain_verdict, vendored from
+        # pg-dev-infra); here it only warns, because EXPLAIN shows the plan and not the rows.
+        v=$(order_explain_verdict "$stmt")
+        if [ -n "$v" ]; then
+            case "$v" in
+                tie-break) why="the ORDER BY is not on a unique key, so tied rows have no settled order" ;;
+                *)         why="the plan is not ordered and may return more than one row in any order" ;;
+            esac
+            warns=$((warns + 1))
+            printf '  WARN  %s:%s  %s: %s\n          %s\n' "$file" "$line" "$v" "$why" "$stmt"
+        fi
         continue
     fi
 

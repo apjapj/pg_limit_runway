@@ -1,4 +1,6 @@
-#!/usr/bin/env bash
+# vendored from pg-dev-infra harness/check-ci-parity.sh; do not edit here.
+# Edit the source there and re-vendor (pg-dev-infra/scripts/vendor-harness.sh).
+# vendored-sha256: 20a69dc86d417c570afaa826f1a18174cc35b7e3ccdd4c6f42dc4439214b63a0
 # check-ci-parity.sh: the two CI copies must agree, so that "one definition" is enforced and not a
 # convention. It checks two things:
 #
@@ -9,7 +11,8 @@
 #      runs `make defects PG=18` in both; a change to one command in one file fails here.
 #
 # Without this, the two files drift the first time someone edits one, which is the failure the
-# sibling check-pg-versions.sh exists to prevent for the version matrix.
+# sibling check-pg-versions.sh exists to prevent for the version matrix. No shebang: this file is
+# vendored and run with `bash`.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 

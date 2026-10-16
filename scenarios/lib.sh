@@ -18,21 +18,20 @@ SCHEMA=lr_scen
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 RUNDIR="$HERE/.run/${PGHOST}_${PGPORT:-5432}"
 mkdir -p "$RUNDIR"
+# The order rules live once, in pg-dev-infra, vendored as scripts/order-rules.sh. val() uses the exact
+# rule, where the row count is known; check-examples.sh uses the plan rule.
+. "$HERE/../scripts/order-rules.sh"
 
 psql_q() { psql -X -q -v ON_ERROR_STOP=1 "$@"; }
 # The exact nondeterministic-order rule, where the row count is known: a statement that returned
-# more than one row and has no ORDER BY. The warning goes to a side file, never to stdout or stderr,
-# because run.sh captures both into the raw output and the evidence, and a warning there would be a
-# changed evidence file. run.sh reads the file and reports it.
+# more than one row and has no ORDER BY, judged by order-rules.sh. The warning goes to a side file,
+# never to stdout or stderr, because run.sh captures both into the evidence. run.sh reads the file.
 val() {
-    local sql=$1 out n
+    local sql=$1 out
     out=$(psql -X -At -v ON_ERROR_STOP=1 -c "$sql")
-    n=$(printf '%s\n' "$out" | wc -l)
-    if [ "$n" -gt 1 ] && ! printf '%s' "$sql" | grep -qiE 'ORDER BY' \
-       && ! printf '%s' "$sql" | grep -qE '(FROM|JOIN) +[A-Za-z0-9_.]+ *\('; then
+    [ -n "$(order_val_multirow "$sql" "$out")" ] && \
         printf '%s\t%s\n' "${LR_SCENARIO:-?}" "$(printf '%s' "$sql" | tr '\n\t' '  ' | cut -c1-120)" \
             >> "$RUNDIR/order-warnings"
-    fi
     printf '%s\n' "$out"
 }
 # Run SQL that is EXPECTED to fail, and print the error it gave, so the evidence shows the failure

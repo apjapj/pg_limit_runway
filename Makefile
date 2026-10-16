@@ -33,7 +33,10 @@ lint:
 	./scripts/check-pg-versions.sh
 	# The two CI copies define the same jobs and run the same command for the ones they share,
 	# so "one definition" is enforced and not a convention.
-	./scripts/check-ci-parity.sh
+	bash ./scripts/check-ci-parity.sh
+	# The vendored harness copies (order-rules.sh, check-ci-parity.sh) still match the sha256 in
+	# their own headers. The canonical is private, so this is the in-repo half of the sync.
+	bash ./scripts/check-vendored-hashes.sh
 	./scenarios/check-evidence.sh
 	# Rejects a duplicated mapping key, which PyYAML accepts silently and Forgejo does not.
 	# A workflow with one dispatches no jobs at all and its run reads as a plain failure.
