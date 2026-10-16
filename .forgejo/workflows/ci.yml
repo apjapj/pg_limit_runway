@@ -83,7 +83,10 @@ jobs:
           # ever becomes unreliable, the fix is a PyYAML-bearing runner image, not removing the check.
           apt-get update -q
           apt-get install -y -q --no-install-recommends python3-yaml
-          make lint
+          # scripts/lint.sh, not `make lint`: this runner has pg_config pointing at PostgreSQL 15
+          # and no pgxs.mk, so `make lint` stopped at the Makefile's `include $(PGXS)` and ran no
+          # check at all. The script needs no PostgreSQL toolchain.
+          ./scripts/lint.sh
       - run: for s in scenarios/*.sh ci/*.sh scripts/*.sh; do bash -n "$s" || exit 1; done
 
   scenarios-14:

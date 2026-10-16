@@ -18,27 +18,7 @@ check-examples:
 	# extension installed. Needs a database, so it is not part of lint.
 	./scripts/check-examples.sh
 lint:
-	# The doc-facts checks, ported from pg_lock_tree's scripts/lint-docs.sh: the version agrees
-	# across control and the newest release and the README header, every SQL file is installed
-	# with no DATA duplicate, local doc paths resolve, and no em-dashes.
-	./scripts/lint-docs.sh
-	# Every catalog a README feature table names is one the release script reads. Four wrong
-	# claims of that kind were found by hand, and a manual pass is forgotten.
-	./scripts/check-evidence-claims.sh
-	# A document that states the PostgreSQL range the matrix covers must state the range the
-	# workflow declares. The same rule as pg_bloat_cause's, where the claim and CI disagreed.
-	./scripts/check-pg-matrix-claims.sh
-	# The matrix has no hole, any other workflow runs only versions the matrix declares, and
-	# every scenario has evidence for every matrix version.
-	./scripts/check-pg-versions.sh
-	# The two CI copies define the same jobs and run the same command for the ones they share,
-	# so "one definition" is enforced and not a convention.
-	bash ./scripts/check-ci-parity.sh
-	# The vendored harness copies (order-rules.sh, check-ci-parity.sh) still match the sha256 in
-	# their own headers. The canonical is private, so this is the in-repo half of the sync.
-	bash ./scripts/check-vendored-hashes.sh
-	./scenarios/check-evidence.sh
-	# Rejects a duplicated mapping key, which PyYAML accepts silently and Forgejo does not.
-	# A workflow with one dispatches no jobs at all and its run reads as a plain failure.
-	./scripts/check-workflows.sh
+	# Every database-free check, in one script. Not the recipe: the Makefile needs pgxs.mk to parse,
+	# and scripts/lint.sh needs no PostgreSQL toolchain. Both CI copies call the script directly.
+	./scripts/lint.sh
 .PHONY: install prove defects check-examples lint

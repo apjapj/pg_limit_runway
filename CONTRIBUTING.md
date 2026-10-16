@@ -10,14 +10,16 @@ applies to a repository with 19 scenarios, 149 tests and thirteen release and up
 |---|---|---|
 | `make install` | Installs the control file and every release and update script in `DATA` via PGXS. | A superuser shell and the server headers (`postgresql-server-dev-NN`). |
 | `make prove` | `pg_prove --dbname $(TESTDB) test/*.sql`. Default `TESTDB` is `postgres`; override it with `make prove TESTDB=...`. | An installed extension and a running server. The libpq variables in your environment pick the server. |
-| `make lint` | The database-free checks, listed in the `lint` target rather than here: `scripts/lint-docs.sh`, `scripts/check-evidence-claims.sh`, `scripts/check-pg-matrix-claims.sh`, `scripts/check-pg-versions.sh`, `scripts/check-ci-parity.sh`, `scripts/check-vendored-hashes.sh`, `scenarios/check-evidence.sh` and `scripts/check-workflows.sh`. | Nothing. Safe anywhere, cheap enough for a pre-commit hook. |
+| `make lint` | `./scripts/lint.sh`, the database-free checks: `scripts/lint-docs.sh`, `scripts/check-evidence-claims.sh`, `scripts/check-pg-matrix-claims.sh`, `scripts/check-pg-versions.sh`, `scripts/check-ci-parity.sh`, `scripts/check-vendored-hashes.sh`, `scenarios/check-evidence.sh` and `scripts/check-workflows.sh`. Run the script, not `make lint`, where the Makefile cannot parse for want of a PostgreSQL toolchain. | Nothing. Safe anywhere, cheap enough for a pre-commit hook. |
 | `make defects` | Re-injects every defect in `defects/` and requires the test that caught it to fail again; `PG=18` picks the server image. | Docker, `pg_prove` and `patch`. Not part of `make lint`. |
 | `make check-examples` | Parses and plans every SQL example in the documentation's fenced blocks, against a server with the extension installed. | A server with the extension installed. Not part of `make lint`. |
 
-CI runs `make lint` and the tests on every PostgreSQL version the matrix declares (14 to
-18), and runs the scenario suite in a container built from `ci/Dockerfile`. A separate
+CI runs `./scripts/lint.sh` and the tests on every PostgreSQL version the matrix declares (14 to
+18), and runs the scenario suite in a container built from `ci/Dockerfile`. The lint is a script
+rather than `make lint` because a CI container can have `pg_config` and no `pgxs.mk`, which stops
+`make` at the Makefile's `include $(PGXS)` before any check runs. A separate
 `defects` job in each workflow runs `make defects PG=18`, the same command in both copies;
-`scripts/check-ci-parity.sh` (in `make lint`) fails if they drift. It does not
+`scripts/check-ci-parity.sh` (in the lint) fails if they drift. It does not
 run `make install` against your machine, so an install that works in CI and not locally is
 a bug in the `DATA` list or in `scenarios/install-extension.sh`, and both are checked by
 the lint.

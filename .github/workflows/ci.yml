@@ -17,10 +17,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      # make lint, not the checks one by one. The Makefile's lint target is the list, so a check
-      # added there cannot be forgotten here; before this, two of them were missing from both CI
-      # lint jobs for exactly that reason.
-      - run: make lint
+      # scripts/lint.sh, not `make lint`: the Makefile needs pgxs.mk to parse, and a container can
+      # have pg_config and no server-dev package, which stopped `make lint` here before any check
+      # ran. The script is the list of checks, so one added there cannot be forgotten here;
+      # scripts/check-ci-parity.sh holds this line to the Forgejo copy's.
+      - run: ./scripts/lint.sh
       - run: for s in scenarios/*.sh ci/*.sh scripts/*.sh; do bash -n "$s" || exit 1; done
   scenarios:
     runs-on: ubuntu-latest
