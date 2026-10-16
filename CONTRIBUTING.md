@@ -44,7 +44,8 @@ change that breaks one will go red rather than pass quietly.
 
 `test/01_limit_runway.sql` is `plan(38)`, `test/02_history.sql` is `plan(33)`, `test/03_notify.sql` is
 `plan(25)`, `test/04_command.sql` is `plan(43)` and `test/05_upgrade.sql` is `plan(10)`. The plans must
-match the assertion counts; the lint does not check that here, so if you add an assertion, count it.
+match the assertion counts, and `scripts/lint-docs.sh` checks each number above against its file and
+fails if a test file is not listed here, so update this list when a plan changes.
 
 ### A test that cannot fail is not a test
 

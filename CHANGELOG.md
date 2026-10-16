@@ -47,6 +47,9 @@ mixed-case parent gives `"Events Tbl_20260301"` and not `"Events Tbl"_20260301`.
   past measurement names the versions it was measured on and is left as written, while a coverage
   claim names the matrix range, 14 to 18. Its own test list also had a stale count, `test/04_command.sql`
   as `plan(42)` against the `plan(43)` it now is.
+- `scripts/lint-docs.sh` checks the test list now, the way it already checks the scenario count: every
+  `test/*.sql` must be named in `CONTRIBUTING.md` and its `plan(N)` must match the file, so the stale
+  count above cannot come back.
 
 ## 0.4.0 (2026-10-15)
 

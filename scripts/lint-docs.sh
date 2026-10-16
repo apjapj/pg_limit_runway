@@ -261,6 +261,42 @@ else
   ok "no scenarios/ directory, so there is no scenario count to check"
 fi
 
+# A test plan number is a claim like the scenario count: it says how many assertions a file makes.
+# CONTRIBUTING.md lists them, and until now nothing checked the list, so a file whose plan grew went
+# stale in the one place a reader looks: 0.4.1's list said `plan(42)` for a file the same branch had
+# raised to `plan(43)`. This reads the pairs from CONTRIBUTING.md and the plan from each file.
+step "every test plan in CONTRIBUTING.md matches the plan its file declares"
+if [ -d test ] && [ -f CONTRIBUTING.md ]; then
+    joined=$(tr '\n' ' ' < CONTRIBUTING.md)
+    plan_bad=""
+    listed=""
+    while IFS= read -r claim; do
+        [ -n "$claim" ] || continue
+        f=$(printf '%s' "$claim" | grep -oE '^test/[A-Za-z0-9_]+\.sql')
+        p=$(printf '%s' "$claim" | grep -oE 'plan\([0-9]+\)' | grep -oE '[0-9]+')
+        [ -n "$f" ] || continue
+        b=$(basename "$f")
+        listed="$listed $b"
+        if [ ! -f "$f" ]; then plan_bad="$plan_bad $b(listed but absent)"; continue; fi
+        real=$(grep -m1 -oE 'plan\([0-9]+\)' "$f" | grep -oE '[0-9]+')
+        [ -n "$real" ] || { plan_bad="$plan_bad $b(declares no plan)"; continue; }
+        [ "$p" = "$real" ] || plan_bad="$plan_bad $b(list says $p, the file says $real)"
+    done <<< "$(printf '%s' "$joined" | grep -oE 'test/[A-Za-z0-9_]+\.sql` is `plan\([0-9]+\)')"
+    # The other direction: a test file that is on disk but nowhere in the list is unlisted.
+    for t in test/*.sql; do
+        [ -e "$t" ] || continue
+        b=$(basename "$t")
+        case " $listed " in *" $b "*) ;; *) plan_bad="$plan_bad $b(not listed in CONTRIBUTING)";; esac
+    done
+    if [ -z "$plan_bad" ]; then
+        ok "every test plan matches its file, and every test file is listed"
+    else
+        bad "the test list disagrees with the files:$plan_bad"
+    fi
+else
+    ok "no test/ directory or CONTRIBUTING.md, so there is no test list to check"
+fi
+
 step "house style"
 # No em-dashes or en-dashes in any document. The house rule, and the one a reader's eye
 # catches before anything else.
