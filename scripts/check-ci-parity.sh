@@ -1,6 +1,6 @@
 # vendored from pg-dev-infra harness/check-ci-parity.sh; do not edit here.
 # Edit the source there and re-vendor (pg-dev-infra/scripts/vendor-harness.sh).
-# vendored-sha256: 68aa2f7acc7334200f9081aec6b2aac5a28ffe06ecb65898d27b3c3ef834b191
+# vendored-sha256: 3d771828fa7177a129a2cb91f3504a375515e875d5d55fa6e43ef4b656cbd3fb
 # check-ci-parity.sh: the two CI copies must agree, so that "one definition" is enforced and not a
 # convention. It checks two things:
 #
@@ -32,15 +32,26 @@ ghj = list((gh.get("jobs") or {}).keys())
 fjj = list((fj.get("jobs") or {}).keys())
 bad = []
 
-def is_scenario(n):
-    # The one documented platform difference: GitHub's matrix job against Forgejo's two named jobs.
-    return n.startswith("scenarios")
+# A job present in only one copy is a failed check, unless it is a documented platform difference.
+# A repository names those in scripts/ci-parity-allow.txt (one job name per line, # comments); the
+# scenario job is always one, whatever it is called, because the two copies expand it differently.
+allow = set()
+try:
+    for line in open("scripts/ci-parity-allow.txt"):
+        line = line.split("#", 1)[0].strip()
+        if line:
+            allow.add(line)
+except FileNotFoundError:
+    pass
+
+def is_platform_difference(n):
+    return n.startswith("scenarios") or n in allow
 
 for n in ghj:
-    if n not in fjj and not is_scenario(n):
+    if n not in fjj and not is_platform_difference(n):
         bad.append("only in %s: %s" % (sys.argv[1], n))
 for n in fjj:
-    if n not in ghj and not is_scenario(n):
+    if n not in ghj and not is_platform_difference(n):
         bad.append("only in %s: %s" % (sys.argv[2], n))
 
 def command(wf, job, needle):
