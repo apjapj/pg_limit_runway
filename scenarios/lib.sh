@@ -20,7 +20,21 @@ RUNDIR="$HERE/.run/${PGHOST}_${PGPORT:-5432}"
 mkdir -p "$RUNDIR"
 
 psql_q() { psql -X -q -v ON_ERROR_STOP=1 "$@"; }
-val()    { psql -X -At -v ON_ERROR_STOP=1 -c "$1"; }
+# The exact nondeterministic-order rule, where the row count is known: a statement that returned
+# more than one row and has no ORDER BY. The warning goes to a side file, never to stdout or stderr,
+# because run.sh captures both into the raw output and the evidence, and a warning there would be a
+# changed evidence file. run.sh reads the file and reports it.
+val() {
+    local sql=$1 out n
+    out=$(psql -X -At -v ON_ERROR_STOP=1 -c "$sql")
+    n=$(printf '%s\n' "$out" | wc -l)
+    if [ "$n" -gt 1 ] && ! printf '%s' "$sql" | grep -qiE 'ORDER BY' \
+       && ! printf '%s' "$sql" | grep -qE '(FROM|JOIN) +[A-Za-z0-9_.]+ *\('; then
+        printf '%s\t%s\n' "${LR_SCENARIO:-?}" "$(printf '%s' "$sql" | tr '\n\t' '  ' | cut -c1-120)" \
+            >> "$RUNDIR/order-warnings"
+    fi
+    printf '%s\n' "$out"
+}
 # Run SQL that is EXPECTED to fail, and print the error it gave, so the evidence shows the failure
 # itself rather than a claim about it.
 try_sql() { psql -X -At -v ON_ERROR_STOP=1 -c "$1" 2>&1 | grep -E '^(ERROR|FATAL|psql: error)' | sed 's/^psql: error: [^:]*: //' | head -1; }
