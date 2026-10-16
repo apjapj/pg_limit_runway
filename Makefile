@@ -6,8 +6,13 @@ PG_CONFIG = pg_config
 PGXS := $(shell $(PG_CONFIG) --pgxs)
 include $(PGXS)
 TESTDB ?= postgres
+PG ?= 18
 prove:
 	pg_prove --dbname $(TESTDB) test/*.sql
+defects:
+	# Re-inject every recorded defect (defects/) and require the test that caught it to fail
+	# again; a defect the suite no longer catches is a regression and exits non-zero.
+	./scripts/check-defects.sh $(PG)
 lint:
 	# The doc-facts checks, ported from pg_lock_tree's scripts/lint-docs.sh: the version agrees
 	# across control and the newest release and the README header, every SQL file is installed
@@ -26,4 +31,4 @@ lint:
 	# Rejects a duplicated mapping key, which PyYAML accepts silently and Forgejo does not.
 	# A workflow with one dispatches no jobs at all and its run reads as a plain failure.
 	./scripts/check-workflows.sh
-.PHONY: install prove lint
+.PHONY: install prove defects lint

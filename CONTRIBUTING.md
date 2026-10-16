@@ -11,6 +11,7 @@ applies to a repository with 19 scenarios, 149 tests and thirteen release and up
 | `make install` | Installs the control file and every release and update script in `DATA` via PGXS. | A superuser shell and the server headers (`postgresql-server-dev-NN`). |
 | `make prove` | `pg_prove --dbname $(TESTDB) test/*.sql`. Default `TESTDB` is `postgres`; override it with `make prove TESTDB=...`. | An installed extension and a running server. The libpq variables in your environment pick the server. |
 | `make lint` | The database-free checks, listed in the `lint` target rather than here: `scripts/lint-docs.sh`, `scripts/check-evidence-claims.sh`, `scripts/check-pg-matrix-claims.sh`, `scripts/check-pg-versions.sh`, `scenarios/check-evidence.sh` and `scripts/check-workflows.sh`. | Nothing. Safe anywhere, cheap enough for a pre-commit hook. |
+| `make defects` | Re-injects every defect in `defects/` and requires the test that caught it to fail again; `PG=18` picks the server image. | Docker, `pg_prove` and `patch`. Not part of `make lint`. |
 
 CI runs `make lint` and the tests on every PostgreSQL version the matrix declares (14 to
 18), and runs the scenario suite in a container built from `ci/Dockerfile`. It does not
@@ -109,6 +110,12 @@ evidence that it can.
 #    not land, which is worth knowing before you change the check
 # 4. restore, reinstall, and run it again to see it pass
 ```
+
+That is for the check you are writing. For a defect that was already fixed, the record is kept so
+the catching is permanent: every defect the extension has had is in `defects/`, and `make defects`
+re-injects each one and requires its test to fail, so a later change that stops catching it is
+reported rather than silently lost. When you fix a bug, keep the test that caught it and save the
+reverse of the fix as `<id>.patch` with its `.meta` beside it; `defects/README.md` says how.
 
 ## Releasing
 

@@ -7,6 +7,23 @@
 set -uo pipefail
 v=${1:?usage: ci/job.sh <postgres major version>}
 cd "$(dirname "$0")/.."
+
+# Preflight. This job needs two things from Docker before it can do anything at all: the CLI on
+# PATH, and a daemon that answers. A daemon that is not there fails later as "failed to connect to
+# the docker API", and the build that follows reads like a bad Dockerfile, so neither the cause nor
+# the fix is named. Check both here, where they can be. The same failure hit the Forgejo copy once
+# (its ubuntu-latest resolved to an act_runner with no /var/run/docker.sock) and was invisible for
+# five runs, so the message names the endpoint it tried.
+if ! command -v docker >/dev/null 2>&1; then
+    echo "ci/job.sh: the docker CLI is not on PATH" >&2
+    exit 1
+fi
+if ! docker info >/dev/null 2>&1; then
+    echo "ci/job.sh: the docker daemon is not answering${DOCKER_HOST:+ (DOCKER_HOST=$DOCKER_HOST)}" >&2
+    echo "           start it, or point DOCKER_HOST at a reachable daemon; this job needs it" >&2
+    exit 1
+fi
+
 image="lr-ci:$v"; port=58$v; c="lr-ci-$v"; fail=0
 docker build -q --build-arg PG_MAJOR="$v" -t "$image" ci/ >/dev/null || exit 1
 docker rm -f "$c" >/dev/null 2>&1

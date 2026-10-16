@@ -47,6 +47,12 @@ mixed-case parent gives `"Events Tbl_20260301"` and not `"Events Tbl"_20260301`.
   past measurement names the versions it was measured on and is left as written, while a coverage
   claim names the matrix range, 14 to 18. Its own test list also had a stale count, `test/04_command.sql`
   as `plan(42)` against the `plan(43)` it now is.
+- `defects/` records the extension's real defects and `make defects` re-injects each one and requires
+  the test that caught it to fail, so the 0.4.0 quoting bug cannot come back unnoticed: the record is
+  the reverse of the 0.4.1 fix, and `test/04` must fail while it is applied. It reports a regression
+  rate, not a one-time check.
+- `ci/job.sh` gained a preflight that names a missing docker CLI or an unanswered daemon before the
+  build, where that failure was previously "failed to connect to the docker API".
 - `scripts/lint-docs.sh` checks the test list now, the way it already checks the scenario count: every
   `test/*.sql` must be named in `CONTRIBUTING.md` and its `plan(N)` must match the file, so the stale
   count above cannot come back.
