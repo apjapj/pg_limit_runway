@@ -39,4 +39,10 @@ out=$(scenarios/run.sh); printf '%s\n' "$out"
 grep -qE 'FAILED' <<<"$out" && fail=1
 if git diff --quiet -- "scenarios/evidence/*.pg$v.txt"; then echo "  evidence identical"
 else git diff -- "scenarios/evidence/*.pg$v.txt"; echo "EVIDENCE DIFFERS"; fail=1; fi
+
+step "docker footprint"
+# The smoke alarm for the anonymous-volume leak the removal paths fix at source: a host that
+# accumulates dangling volumes fails here rather than filling its disk. Deletes nothing.
+scripts/docker-guard.sh check || fail=1
+
 exit $fail
