@@ -26,10 +26,10 @@ fi
 
 image="lr-ci:$v"; port=58$v; c="lr-ci-$v"; fail=0
 docker build -q --build-arg PG_MAJOR="$v" -t "$image" ci/ >/dev/null || exit 1
-docker rm -f "$c" >/dev/null 2>&1
+docker rm -f -v "$c" >/dev/null 2>&1
 docker run -d --rm --name "$c" -p 127.0.0.1:$port:5432 -e POSTGRES_PASSWORD=test "$image" \
     postgres -c autovacuum_naptime=10s -c log_autovacuum_min_duration=0 >/dev/null || exit 1
-trap 'docker rm -f "$c" >/dev/null 2>&1' EXIT
+trap 'docker rm -f -v "$c" >/dev/null 2>&1' EXIT
 for _ in $(seq 1 60); do pg_isready -q -h 127.0.0.1 -p $port && break; sleep 1; done
 sleep 3
 export PGHOST=127.0.0.1 PGPORT=$port PGUSER=postgres PGPASSWORD=test PGDATABASE=postgres LR_CONTAINER=$c
