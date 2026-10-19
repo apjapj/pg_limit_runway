@@ -59,7 +59,7 @@ wait-doubling read backwards. That is the **five geometric edges**, and this doc
 | escalate | 1 day |
 
 Onset is the first edge, so a problem watched from thirty days out produces five events and no more:
-one `alerting`, four `escalated`, then one `cleared` when it clears. That is the whole point of a
+five `alerting`, then one `cleared` when it clears. That is the whole point of a
 geometric ladder and the reason a linear one is wrong. A ladder of 30, 29, 28, ... would fire daily.
 A ladder of 30, 7, 1 fires twice and can take a two-day problem from onset straight to urgent with
 nothing in between. The halving keeps the **factor** between notifications roughly constant, which
@@ -68,9 +68,10 @@ is what makes each one read as "twice as bad as last time" and keeps the count l
 The comparison is against the **lowest edge already notified**, stored in `limit_runway_alert`, never
 against the previous sample. A date only ever gets closer, so comparing to the last sample would be
 true on every sample and would notify every sample, which is the failure `lock_tree_alert` exists to
-prevent reached by a different route. `event` is `escalated` and not `alerting`: unlike `pg_lock_tree`,
-which sends `alerting` for both and says so, this tool has a discrete and obvious edge and implements
-the distinction the contract defines.
+prevent reached by a different route. `event` is `alerting` for an escalation as well as for an onset:
+the contract carries the distinction in `previous_level`, not in a third event, and reserves
+`escalated`. `level` is the count read after the increment, so onset is 1 and each escalation is one
+higher.
 
 Clearing forgets the stored state, so the same limit approaching again later alerts from onset rather
 than escalating against a high-water mark from a problem that was already fixed.
@@ -126,7 +127,9 @@ The five required keys, plus this tool's own, all additive per the contract's ru
 {
   "tool":       "pg_limit_runway",
   "channel":    "limit_runway",
-  "event":      "alerting" | "escalated" | "cleared",
+  "event":      "alerting" | "cleared",
+  "level":      2,
+  "previous_level": 1,
   "subject":    "sequence public.orders.id",
   "sampled_at": "2026-10-15T09:12:04+01:00",
   "kind":       "sequence",

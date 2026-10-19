@@ -1,6 +1,6 @@
 # pg_limit_runway Makefile
 EXTENSION = pg_limit_runway
-DATA      = pg_limit_runway--0.1.sql pg_limit_runway--0.2.sql pg_limit_runway--0.2.1.sql pg_limit_runway--0.2.2.sql pg_limit_runway--0.3.0.sql pg_limit_runway--0.4.0.sql pg_limit_runway--0.4.1.sql pg_limit_runway--0.1--0.2.sql pg_limit_runway--0.2--0.2.1.sql pg_limit_runway--0.2.1--0.2.2.sql pg_limit_runway--0.2.2--0.3.0.sql pg_limit_runway--0.3.0--0.4.0.sql pg_limit_runway--0.4.0--0.4.1.sql
+DATA      = pg_limit_runway--0.1.sql pg_limit_runway--0.2.sql pg_limit_runway--0.2.1.sql pg_limit_runway--0.2.2.sql pg_limit_runway--0.3.0.sql pg_limit_runway--0.4.0.sql pg_limit_runway--0.4.1.sql pg_limit_runway--0.1--0.2.sql pg_limit_runway--0.2--0.2.1.sql pg_limit_runway--0.2.1--0.2.2.sql pg_limit_runway--0.2.2--0.3.0.sql pg_limit_runway--0.3.0--0.4.0.sql pg_limit_runway--0.4.0--0.4.1.sql pg_limit_runway--0.5.0.sql pg_limit_runway--0.4.1--0.5.0.sql
 PGFILEDESC = "pg_limit_runway - what will break next"
 PG_CONFIG = pg_config
 PGXS := $(shell $(PG_CONFIG) --pgxs)
