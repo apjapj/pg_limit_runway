@@ -137,6 +137,25 @@ else
     ok "no .control default_version, so there is no current version to claim"
 fi
 
+step "the control version has a release tag"
+
+# The control file's version is what README, INSTALL.md and SECURITY.md tell a reader to check out
+# or update to, and a tag is what pins that version for anyone who does not know the hash. A version
+# can be named current in all of those places and tagged nowhere, which takes a person reading the
+# pages side by side to notice. A shallow clone carries no tags, so when none is present the check
+# says so rather than failing; and the gap between bumping the version and cutting the tag is real,
+# so it is waived for that window with LINT_ALLOW_UNTAGGED_RELEASE=1.
+taglist=$(git tag 2>/dev/null)
+if [ "${tagcount:-0}" -eq 0 ]; then
+    ok "no release tags in this checkout, so the control version's tag cannot be checked"
+elif grep -qx "v$ver" <<<"$taglist"; then
+    ok "the control version $ver has its tag, v$ver"
+elif [ "${LINT_ALLOW_UNTAGGED_RELEASE:-0}" = "1" ]; then
+    ok "control version $ver has no tag, which LINT_ALLOW_UNTAGGED_RELEASE=1 allows"
+else
+    bad "control version is $ver but there is no v$ver tag: tag it, or set LINT_ALLOW_UNTAGGED_RELEASE=1 while the bump awaits its tag"
+fi
+
 # Every release and update script must be installed: either listed literally in DATA, or
 # covered by a wildcard in the Makefile. pg_lock_tree installs update paths via a UPGRADES
 # wildcard; runway lists them in DATA. Both are correct, so both are accepted.
