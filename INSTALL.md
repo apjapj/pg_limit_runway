@@ -39,7 +39,13 @@ and `limit_runway_text()`, which depend on it. Dropping them drops their grants:
 From 0.4.0: `ALTER EXTENSION pg_limit_runway UPDATE TO '0.4.1';`. It changes one function body
 (`limit_runway_command_row()`, a quoting fix) with `CREATE OR REPLACE`, so nothing is dropped and no
 grant is affected: the re-grant above is only for the 0.3.0 step. An installation at 0.3.0 updates
-through both in order, and `ALTER EXTENSION pg_limit_runway UPDATE` with no `TO` runs the whole chain.
+through each step in order, and `ALTER EXTENSION pg_limit_runway UPDATE` with no `TO` runs the whole
+chain.
+
+From 0.4.1: `ALTER EXTENSION pg_limit_runway UPDATE TO '0.5.0';`. It adds `level` and
+`previous_level` to the `alerting` payload and sends an escalation as `alerting` rather than the
+reserved `escalated`; both functions change with `CREATE OR REPLACE`, so nothing is dropped and no
+grant is affected.
 
 ## Sampling, for dates (0.2)
 

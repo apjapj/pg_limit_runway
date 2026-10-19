@@ -3,6 +3,24 @@
 Versions are listed newest first. Released tags are never edited: a change that needs
 a new entry gets a new version.
 
+## 0.5.0 (2026-10-19)
+
+The two escalation keys of the shared `pg_incident_watch` alert contract, on the event the
+contract expects them on.
+
+- `limit_runway_notify()` sends `event = 'alerting'` for an escalation as well as for an onset,
+  and adds `level` and `previous_level`. `level` is the count read after the increment: 1 at
+  onset, prior + 1 at each escalation. `previous_level` is null at onset and the previous level
+  after that. `escalated` is reserved by the contract and sent by no tool; this release stops
+  sending it, and no value is removed from the vocabulary.
+- `limit_runway_notify_resolved()` adds `level` to the `cleared` payload: the last level the
+  incident reached. `previous_level` is absent there, not present and null.
+- No signature, returned column or table changes. Both functions are replaced, so grants and
+  comments survive. The update path from 0.4.1 ships.
+
+This matches `pg_lock_tree` 1.2.0 and `pg_bloat_cause` 0.4.0, and completes the family: all
+three tools now send the escalation keys on `alerting`.
+
 ## 0.4.1 (2026-10-15)
 
 A quoting fix to the Act stage, and the first test that runs an update path.

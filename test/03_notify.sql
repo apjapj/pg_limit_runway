@@ -16,7 +16,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
 CREATE EXTENSION IF NOT EXISTS pg_limit_runway;
 \o
-SELECT plan(25);
+SELECT plan(26);
 
 -- ---------------------------------------------------------------- the objects
 SELECT has_table('limit_runway_alert', 'the alert state table exists');
@@ -110,8 +110,10 @@ SELECT is(limit_runway_notify(), 1::bigint,
           'the same limit approaching again alerts from onset, not against the old high-water mark');
 
 -- ---------------------------------------------------------------- the payload carries what the family needs
-SELECT ok((SELECT prosrc FROM pg_proc WHERE proname = 'limit_runway_notify') LIKE '%escalated%',
-          'the sender distinguishes escalation, which this tool has a discrete edge for');
+SELECT ok((SELECT prosrc FROM pg_proc WHERE proname = 'limit_runway_notify') LIKE '%previous_level%',
+          'the sender carries level and previous_level, the contract''s escalation keys');
+SELECT ok((SELECT prosrc FROM pg_proc WHERE proname = 'limit_runway_notify') NOT LIKE '%ev := ''escalated''%',
+          'and sends alerting for onset and escalation, not the reserved escalated event');
 SELECT ok((SELECT prosrc FROM pg_proc WHERE proname = 'limit_runway_notify') LIKE '%sampled_at%',
           'and carries sampled_at, one of the required keys');
 
