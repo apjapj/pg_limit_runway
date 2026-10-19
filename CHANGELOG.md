@@ -8,6 +8,11 @@ a new entry gets a new version.
 The two escalation keys of the shared `pg_incident_watch` alert contract, on the event the
 contract expects them on.
 
+**Behaviour change: an escalation is now an `alerting` event with `previous_level` set. This
+release stops sending `escalated`, which the contract reserves and says no tool sends. A listener
+that branched on `escalated` must branch on `previous_level` instead; a listener that ignored
+`escalated` sees no change beyond the two new keys.**
+
 - `limit_runway_notify()` sends `event = 'alerting'` for an escalation as well as for an onset,
   and adds `level` and `previous_level`. `level` is the count read after the increment: 1 at
   onset, prior + 1 at each escalation. `previous_level` is null at onset and the previous level
