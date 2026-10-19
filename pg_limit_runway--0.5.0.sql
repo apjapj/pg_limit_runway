@@ -1,6 +1,11 @@
-/* pg_limit_runway--0.4.1.sql
+/* pg_limit_runway--0.5.0.sql
  *
  * What will break next: every hard limit in a PostgreSQL database, and the date each one is reached.
+ *
+ * 0.5.0 adds the two escalation keys of the shared pg_incident_watch contract to the alerting
+ * payload, `level` and `previous_level`, and sends an escalation as `alerting` rather than the
+ * reserved `escalated`. Both functions change with CREATE OR REPLACE, so grants and comments
+ * survive; no signature, returned column or table changes. See pg_limit_runway--0.4.1--0.5.0.sql.
  *
  * 0.4.1 is a fix to the Act stage's quoting. The finding carries its object already quoted, because
  * the finder builds it with %I; limit_runway_command_row() split that object on '.' and then applied
