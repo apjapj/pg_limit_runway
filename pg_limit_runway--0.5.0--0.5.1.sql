@@ -1,0 +1,147 @@
+-- pg_limit_runway 0.5.0 -> 0.5.1
+--
+-- Fixes limit_runway_sequences(): it required SELECT on a sequence but not USAGE on the sequence's
+-- schema. A role can hold the first without the second; the read then raised "permission denied for
+-- schema", which took the whole function down instead of marking that row unreadable. Reproduced
+-- with cron.jobid_seq, created by pg_lock_tree's pg_cron test in the works-alongside database.
+--
+-- CREATE OR REPLACE, no signature or column change, so grants survive. Bodies are lifted from
+-- pg_limit_runway--0.5.1.sql.
+
+\echo Use "ALTER EXTENSION pg_limit_runway UPDATE TO '0.5.1'" to load this file. \quit
+
+CREATE OR REPLACE FUNCTION @extschema@.limit_runway_sequences()
+RETURNS TABLE (
+  object      text,
+  seq_schema  name,
+  seq_name    name,
+  inc         bigint,
+  seqmax      bigint,
+  seqmin      bigint,
+  seqcycle    boolean,
+  tbl_schema  name,
+  tbl_name    name,
+  tbl_oid     oid,
+  attname     name,
+  attnum      smallint,
+  coltype     text,
+  colmax      numeric,
+  readable    boolean,
+  locked      boolean,
+  nv          numeric,
+  cur         numeric,
+  step        numeric,
+  eff         numeric,
+  nleft       numeric,
+  total       numeric,
+  wraps       boolean,
+  frac        numeric,
+  -- The column whose DEFAULT calls nextval() on this sequence, when no dependency ties the two
+  -- together. Non-null only in that case, because a DEFAULT is not a link: see the detection
+  -- join below, and docs/rate.md.
+  dflt_object text,
+  dflt_coltype text
+)
+LANGUAGE plpgsql STABLE
+SET lock_timeout = '1s'
+AS $fn$
+#variable_conflict use_column
+DECLARE
+  q       record;
+  colmin  numeric;
+  lv      numeric;
+  called  boolean;
+BEGIN
+  FOR q IN
+    SELECT sn.nspname AS q_seq_schema, s.relname AS q_seq_name, sq.seqincrement AS q_inc,
+           sq.seqmax AS q_seqmax, sq.seqmin AS q_seqmin, sq.seqcycle AS q_seqcycle,
+           tn.nspname AS q_tbl_schema, t.relname AS q_tbl_name, t.oid AS q_tbl_oid,
+           a.attname AS q_attname, a.attnum AS q_attnum, a.atttypid AS q_atttypid,
+           format_type(a.atttypid, a.atttypmod) AS q_coltype,
+           (has_schema_privilege(sn.oid, 'USAGE')
+            AND has_sequence_privilege(s.oid, 'SELECT')) AS q_can_read,
+           dl.d_object AS q_d_object, dl.d_coltype AS q_d_coltype
+      FROM pg_class s
+      JOIN pg_namespace sn  ON sn.oid = s.relnamespace
+      JOIN pg_sequence sq   ON sq.seqrelid = s.oid
+      LEFT JOIN pg_depend d ON d.objid = s.oid AND d.classid = 'pg_class'::regclass
+                           AND d.refclassid = 'pg_class'::regclass AND d.deptype IN ('a', 'i')
+      LEFT JOIN pg_class t       ON t.oid = d.refobjid
+      LEFT JOIN pg_namespace tn  ON tn.oid = t.relnamespace
+      LEFT JOIN pg_attribute a   ON a.attrelid = t.oid AND a.attnum = d.refobjsubid
+     -- A column DEFAULT nextval() is NOT a dependency, so a sequence wired that way has no
+     -- pg_depend row and its column is invisible above. This finds that column so the finding can
+     -- say the limit is unknown, rather than print the sequence's own MAXVALUE as if it were the
+      -- limit. It cannot raise: nothing here resolves a name on the caller's behalf, and the
+      -- condition below says why that matters (s18 caught the first version doing it).
+     LEFT JOIN LATERAL (
+       SELECT format('%I.%I.%I', dn.nspname, dc.relname, da.attname) AS d_object,
+              format_type(da.atttypid, NULL) AS d_coltype
+         FROM pg_attrdef ad
+         JOIN pg_class     dc ON dc.oid = ad.adrelid
+         JOIN pg_namespace dn ON dn.oid = dc.relnamespace
+         JOIN pg_attribute da ON da.attrelid = ad.adrelid AND da.attnum = ad.adnum
+        WHERE da.atttypid IN ('int2'::regtype, 'int4'::regtype, 'int8'::regtype)
+          -- Two DE-PARSED strings compared, NOT a ::regclass cast on the stored default. That cast resolves
+          -- a name, and resolving a name checks the caller's privileges: for a role without USAGE on the
+          -- sequence's schema it raised "permission denied for schema" and took the whole function down.
+          -- s18 asserts that a role without grants gets "not established" rather than an error, and it
+          -- caught exactly that. Both sides here are deparsed under the same search_path, so they agree
+          -- about qualification.
+          AND pg_get_expr(ad.adbin, ad.adrelid) = format('nextval(%L::regclass)', s.oid::regclass::text)
+        ORDER BY dn.nspname, dc.relname, da.attnum
+        LIMIT 1
+     ) dl ON true
+     WHERE s.relkind = 'S' AND sn.nspname NOT IN ('pg_catalog', 'information_schema')
+       AND NOT pg_is_other_temp_schema(sn.oid)
+     ORDER BY sn.nspname, s.relname   -- so the names listed in a not-established row are the same each call
+  LOOP
+    seq_schema := q.q_seq_schema; seq_name := q.q_seq_name; inc := q.q_inc; seqmax := q.q_seqmax;
+    seqmin := q.q_seqmin; seqcycle := q.q_seqcycle; tbl_schema := q.q_tbl_schema; tbl_name := q.q_tbl_name;
+    tbl_oid := q.q_tbl_oid; attname := q.q_attname; attnum := q.q_attnum; coltype := q.q_coltype;
+    -- Only meaningful when there is no dependency: if a column owns the sequence, the dependency
+    -- is the answer and a default pointing elsewhere would be noise.
+    dflt_object  := CASE WHEN q.q_attname IS NULL THEN q.q_d_object  END;
+    dflt_coltype := CASE WHEN q.q_attname IS NULL THEN q.q_d_coltype END;
+    colmax := CASE q.q_atttypid WHEN 'int2'::regtype THEN 32767 WHEN 'int4'::regtype THEN 2147483647
+                                WHEN 'int8'::regtype THEN 9223372036854775807 END;
+    colmin := CASE q.q_atttypid WHEN 'int2'::regtype THEN -32768 WHEN 'int4'::regtype THEN -2147483648
+                                WHEN 'int8'::regtype THEN -9223372036854775808 END;
+    -- A sequence no column owns (s3_desc) is reported under its own name, against its own limits.
+    object := CASE WHEN q.q_attname IS NULL THEN format('%I.%I', q.q_seq_schema, q.q_seq_name)
+                   ELSE format('%I.%I.%I', q.q_tbl_schema, q.q_tbl_name, q.q_attname) END;
+    readable := q.q_can_read; locked := false;
+    nv := NULL; cur := NULL; step := NULL; eff := NULL; nleft := NULL; total := NULL; wraps := NULL; frac := NULL;
+    IF readable THEN
+      BEGIN
+        EXECUTE format('SELECT last_value, is_called FROM %I.%I', q.q_seq_schema, q.q_seq_name) INTO lv, called;
+      EXCEPTION WHEN lock_not_available THEN
+        locked := true;
+      END;
+    END IF;
+    IF readable AND NOT locked THEN
+      nv := CASE WHEN called THEN lv + inc ELSE lv END;
+      cur := nv - inc;
+      step := abs(inc);
+      IF inc > 0 THEN
+        eff := least(seqmax, coalesce(colmax, seqmax));
+        nleft := CASE WHEN nv > eff THEN 0 ELSE floor((eff - nv) / step) + 1 END;
+        total := floor((eff - seqmin) / step) + 1;
+        wraps := seqcycle AND eff = seqmax;   -- a column narrower than the sequence fails before the wrap
+      ELSE
+        eff := greatest(seqmin, coalesce(colmin, seqmin));
+        nleft := CASE WHEN nv < eff THEN 0 ELSE floor((nv - eff) / step) + 1 END;
+        total := floor((seqmax - eff) / step) + 1;
+        wraps := seqcycle AND eff = seqmin;
+      END IF;
+      frac := 1 - least(nleft, total) / total;
+    END IF;
+    RETURN NEXT;
+  END LOOP;
+END
+$fn$;
+COMMENT ON FUNCTION @extschema@.limit_runway_sequences() IS
+  'Every sequence this database holds, with its position counted in calls of nextval(): the next '
+  'value, calls left and calls in its whole range, against the tighter of its own limits and its '
+  'column''s. Shared by limit_runway_findings() and limit_runway_sample(). A sequence the caller '
+  'cannot read, or that is locked, has readable or locked set and no figures.';

@@ -15,7 +15,7 @@ CREATE EXTENSION IF NOT EXISTS pgtap;
 -- Create an old version rather than the released one, so this exercises the update path itself.
 -- Drop first: a server may already carry the extension, and the CI scenario jobs install it before
 -- pg_prove, so CREATE EXTENSION ... VERSION would otherwise refuse it as already existing. The drop
--- is inside the transaction and is rolled back with it, so a pre-installed 0.5.0 comes back.
+-- is inside the transaction and is rolled back with it, so a pre-installed 0.5.1 comes back.
 DROP EXTENSION IF EXISTS pg_limit_runway;
 CREATE EXTENSION pg_limit_runway VERSION '0.3.0';
 \o
@@ -35,7 +35,7 @@ GRANT EXECUTE ON FUNCTION limit_runway_text(numeric, interval) TO lr_up;
 ALTER EXTENSION pg_limit_runway UPDATE;
 
 -- ---------------------------------------------------------------- after the update
-SELECT is((SELECT extversion FROM pg_extension WHERE extname = 'pg_limit_runway'), '0.5.0',
+SELECT is((SELECT extversion FROM pg_extension WHERE extname = 'pg_limit_runway'), '0.5.1',
           'ALTER EXTENSION UPDATE reaches the version the control file declares');
 SELECT has_column('limit_runway', 'from_date',
                   'the recreated view carries the new from_date column the Act stage needs');

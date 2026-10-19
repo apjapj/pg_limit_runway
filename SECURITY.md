@@ -4,9 +4,9 @@
 
 | Version | Supported | Why |
 |---|---|---|
-| 0.5.0 | **yes** | the current release, tagged `v0.5.0` |
-| 0.4.1, 0.4, 0.3 | yes, by updating | `ALTER EXTENSION pg_limit_runway UPDATE TO '0.5.0'`, one update path per step |
-| 0.2, 0.2.1, 0.2.2 | yes, by updating | the same chain reaches 0.5.0; 0.2.1 changed no SQL over 0.2 |
+| 0.5.1 | **yes** | the current release, tagged `v0.5.1` |
+| 0.5.0, 0.4.1, 0.4, 0.3 | yes, by updating | `ALTER EXTENSION pg_limit_runway UPDATE TO '0.5.1'`, one update path per step |
+| 0.2, 0.2.1, 0.2.2 | yes, by updating | the same chain reaches 0.5.1; 0.2.1 changed no SQL over 0.2 |
 | 0.1 | yes, by updating, and it was never tagged | the update path from 0.1 ships, but there is no public 0.1 to install from and no history, so no dates |
 
 Fixes are made on `main` and released as a new version. Released tags are not edited.
