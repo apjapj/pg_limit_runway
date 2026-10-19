@@ -3,6 +3,18 @@
 Versions are listed newest first. Released tags are never edited: a change that needs
 a new entry gets a new version.
 
+## 0.5.1 (2026-10-19)
+
+A patch release for one defect found by the family's works-alongside test.
+
+`limit_runway_sequences()` required `SELECT` on a sequence but not `USAGE` on the sequence's
+schema. A role can hold the first without the second; the read then raised "permission denied for
+schema", which took the whole function down instead of marking that row unreadable. Reproduced
+with `cron.jobid_seq`, which exists once `pg_lock_tree`'s `pg_cron` test has run in the same
+database. The function now requires both privileges before it reads.
+
+No signature, returned column or table changes; `CREATE OR REPLACE` in the update path.
+
 ## 0.5.0 (2026-10-19)
 
 The two escalation keys of the shared `pg_incident_watch` alert contract, on the event the

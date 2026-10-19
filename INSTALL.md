@@ -47,6 +47,11 @@ From 0.4.1: `ALTER EXTENSION pg_limit_runway UPDATE TO '0.5.0';`. It adds `level
 reserved `escalated`; both functions change with `CREATE OR REPLACE`, so nothing is dropped and no
 grant is affected.
 
+From 0.5.0: `ALTER EXTENSION pg_limit_runway UPDATE TO '0.5.1';`. It makes
+`limit_runway_sequences()` require `USAGE` on a sequence's schema as well as `SELECT` on the
+sequence, so a sequence the caller cannot reach, such as `cron.jobid_seq`, is reported unreadable
+instead of raising. One `CREATE OR REPLACE`; no grant is affected.
+
 ## Sampling, for dates (0.2)
 
 A projected date needs samples. Schedule the sampler hourly, as a role with the grants in the next
