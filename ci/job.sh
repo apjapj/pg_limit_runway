@@ -5,7 +5,8 @@
 # committed, byte for byte. Modelled on pg_bloat_cause's ci/job.sh; strict from the start, because these scenarios print no
 # ids or timestamps and have been byte-identical across runs on two versions.
 set -uo pipefail
-v=${1:?usage: ci/job.sh <postgres major version>}
+v=${1:?usage: ci/job.sh <postgres major version> [apt major]}
+apt=${2:-${v%%beta*}}; apt=${apt%%rc*}; major=$apt
 cd "$(dirname "$0")/.."
 
 # Preflight. This job needs two things from Docker before it can do anything at all: the CLI on
@@ -24,8 +25,9 @@ if ! docker info >/dev/null 2>&1; then
     exit 1
 fi
 
-image="lr-ci:$v"; port=58$v; c="lr-ci-$v"; fail=0
-docker build -q --build-arg PG_MAJOR="$v" -t "$image" ci/ >/dev/null || exit 1
+image="lr-ci:$v"; port=58$major; c="lr-ci-$v"; fail=0
+step() { printf '\n== %s\n' "$1"; }
+docker build -q --build-arg PG_MAJOR="$v" --build-arg APT_MAJOR="$apt" -t "$image" ci/ >/dev/null || exit 1
 docker rm -f -v "$c" >/dev/null 2>&1
 docker run -d --rm --name "$c" -p 127.0.0.1:$port:5432 -e POSTGRES_PASSWORD=test "$image" \
     postgres -c autovacuum_naptime=10s -c log_autovacuum_min_duration=0 >/dev/null || exit 1
@@ -37,8 +39,8 @@ scenarios/install-extension.sh "$c" || exit 1
 pg_prove --dbname postgres test/*.sql || fail=1
 out=$(scenarios/run.sh); printf '%s\n' "$out"
 grep -qE 'FAILED' <<<"$out" && fail=1
-if git diff --quiet -- "scenarios/evidence/*.pg$v.txt"; then echo "  evidence identical"
-else git diff -- "scenarios/evidence/*.pg$v.txt"; echo "EVIDENCE DIFFERS"; fail=1; fi
+if git diff --quiet -- "scenarios/evidence/*.pg$major.txt"; then echo "  evidence identical"
+else git diff -- "scenarios/evidence/*.pg$major.txt"; echo "EVIDENCE DIFFERS"; fail=1; fi
 
 step "docker footprint"
 # The smoke alarm for the anonymous-volume leak the removal paths fix at source: a host that

@@ -29,15 +29,27 @@ jobs:
       fail-fast: false
       matrix:
         # Every stable version in the supported range, not a sample of it. 14 and 18 were the whole
-        # matrix until this, so 15, 16 and 17 were never run anywhere. All three pass on this harness,
-        # run by hand first, with their evidence committed alongside.
-        pg: ["14", "15", "16", "17", "18"]
+        # matrix until this, so 15, 16 and 17 were never run anywhere. 19 is the current pre-release:
+        # its image needs the include form and a separate apt major, as pg_lock_tree does it.
+        include:
+          - pg_version: "14"
+            apt_version: "14"
+          - pg_version: "15"
+            apt_version: "15"
+          - pg_version: "16"
+            apt_version: "16"
+          - pg_version: "17"
+            apt_version: "17"
+          - pg_version: "18"
+            apt_version: "18"
+          - pg_version: "19beta4"
+            apt_version: "19"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: |
           sudo apt-get update -q
           sudo apt-get install -y -q postgresql-client libtap-parser-sourcehandler-pgtap-perl
-      - run: ./ci/job.sh ${{ matrix.pg }}
+      - run: ./ci/job.sh ${{ matrix.pg_version }} ${{ matrix.apt_version }}
 
   # One command, the same in both copies: check-defects.sh picks container mode here (Docker is on
   # this runner) and local mode on the Forgejo copy (its runner is a PostgreSQL and has no Docker).

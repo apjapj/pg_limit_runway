@@ -1,0 +1,42 @@
+
+the usual check (pg_sequences, last_value against max_value)
+ sequencename | data_type | increment_by | min_value | max_value | cycle | last_value | pct_used
+ s3_capped | bigint | 1 | 1 | 1000 | f | 1000 | 100.00
+ s3_cyc | integer | 1 | 1 | 100 | t | 100 | 100.00
+ s3_desc | integer | -1 | -2147483648 | -1 | f | -2147483645 | 214748364500.00
+(3 rows)
+
+
+what pg_limit_runway says
+ [failing now] sequence lr_scen.s3_capped_t.id: lr_scen.s3_capped_t.id (bigint) is exhausted: the limit is 1000, and the next call fails: 1000 is the sequence's MAXVALUE. Then: the limit is the sequence's MAXVALUE 1000, not the column's bigint.
+ [no rate yet] sequence lr_scen.s3_cyc_t.id: 0 of 100 values left before it wraps to 1 (integer, ascending). Then: it cycles instead of failing: after the wrap, inserts collide with any keys still held from the last pass.
+ [no rate yet] sequence lr_scen.s3_desc: 3 of 2147483648 values left (sequence, descending).
+ PASS finding for lr_scen.s3_desc: no rate yet (class 3)
+ PASS finding for lr_scen.s3_capped_t.id: exhausted (class 1), then %MAXVALUE 1000, not the column%
+ PASS finding for lr_scen.s3_cyc_t.id: no rate yet (class 3), then %cycles instead of failing%
+
+what actually happens
+ a) descending: nextval gave -2147483646, -2147483647, -2147483648, then: ERROR: nextval: reached minimum value of sequence "s3_desc" (-2147483648)
+ b) MAXVALUE 1000 on a bigint column: ERROR: nextval: reached maximum value of sequence "s3_capped" (1000)
+ c) CYCLE: nextval did not fail, it returned 1; the insert then: ERROR: duplicate key value violates unique constraint "s3_cyc_t_pkey"
+
+checks
+ PASS the descending sequence's usual pct_used is meaningless (above 100%)
+ PASS the descending sequence fails at its minimum
+ PASS the capped sequence fails at MAXVALUE 1000, far below bigint's
+ PASS the cycling sequence wrapped to 1 instead of failing
+ PASS and the insert collided with an existing key
+
+after: the descending sequence has run out, and the cycling one has wrapped into its data
+
+what pg_limit_runway says
+ [failing now] sequence lr_scen.s3_capped_t.id: lr_scen.s3_capped_t.id (bigint) is exhausted: the limit is 1000, and the next call fails: 1000 is the sequence's MAXVALUE. Then: the limit is the sequence's MAXVALUE 1000, not the column's bigint.
+ [failing now] sequence lr_scen.s3_cyc_t.id: the sequence has wrapped into existing keys (sequence at 2, data at 100): the next default id, 3, is already taken, so the next insert fails. No setval fixes a cycling sequence: it would wrap back into the same keys. Free the old keys, or widen its range.
+ [failing now] sequence lr_scen.s3_desc: lr_scen.s3_desc (sequence) is exhausted: the limit is -2147483648, and the next call fails: -2147483648 is the sequence's MINVALUE.
+ PASS finding for lr_scen.s3_desc: exhausted (class 1)
+ PASS finding for lr_scen.s3_cyc_t.id: cycled into existing keys (class 1)
+
+expected finding
+ a) s3_desc: 3 values left, measured downwards to min_value. b) s3_capped: 0 left, the limit is
+ MAXVALUE 1000, not bigint. c) s3_cyc: a different finding, not exhaustion: it has wrapped and every
+ insert now collides with a key that exists.
