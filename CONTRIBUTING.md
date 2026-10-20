@@ -2,7 +2,7 @@
 
 Short version of what CI runs and what it will not catch for you. `pg_lock_tree`'s
 CONTRIBUTING.md is the long version and is worth reading once; this file is what
-applies to a repository with 19 scenarios, 149 tests and thirteen release and update scripts.
+applies to a repository with 19 scenarios, 150 tests and seventeen release and update scripts.
 
 ## Make targets
 
@@ -180,8 +180,8 @@ it, and a reader's eye catches it before anything else.
 
 ### Versions in prose
 
-CI runs every PostgreSQL version the matrix declares: 14, 15, 16, 17 and 18, all of them,
-with no hole. Two kinds of sentence name versions, and they are not the same claim:
+CI runs every PostgreSQL version the matrix declares: 14, 15, 16, 17, 18 and 19beta4, all of
+them, with no hole. Two kinds of sentence name versions, and they are not the same claim:
 
 - A document that states **current coverage** names the matrix range, `14 to 19`.
   `scripts/check-pg-matrix-claims.sh` checks these against the workflow.

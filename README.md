@@ -7,7 +7,8 @@
 
 Part of [pg_incident_watch](https://github.com/apjapj/pg_incident_watch). Pure SQL, `CREATE EXTENSION pg_limit_runway`, no
 restart, no `shared_preload_libraries`. Status: **0.5.1**, with history, projected
-dates, alerting and the statements to act on them, tested on PostgreSQL 14 to 19. Install and grants:
+dates, alerting and the statements to act on them, tested on PostgreSQL 14 to 19, where 19 is the
+current pre-release (`19beta4`). Install and grants:
 [INSTALL.md](INSTALL.md). What changed in each release: [CHANGELOG.md](CHANGELOG.md). Changing it or
 releasing it: [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -113,7 +114,7 @@ As pg_lock_tree did with `scenarios/`: build each case for real. The traps worth
    disk filling, not invalidation, and that is a different limit.
 9. **A role with `VALID UNTIL`**, and `infinity`.
 
-Built as eleven scenarios, run on PostgreSQL 14 and 18; six of them showed behaviour this list did not
+Built as eleven scenarios, run on PostgreSQL 14 to 19; six of them showed behaviour this list did not
 expect (failed inserts consume sequence values, a forced vacuum need not lower the age, MultiXacts are per
 locker set, a DEFAULT partition blocks the fix, expired passwords still allow non-password logins,
 superusers bypass connection limits). Two more came later: s12, a sequence behind its data (found by
