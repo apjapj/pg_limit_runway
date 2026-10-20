@@ -1,13 +1,12 @@
---- a/pg_limit_runway--0.4.1.sql
-+++ b/pg_limit_runway--0.4.1.sql
-@@ -1232,19 +1232,20 @@
- LANGUAGE sql STABLE
+--- a/pg_limit_runway--0.5.1.sql
++++ b/pg_limit_runway--0.5.1.sql
+@@ -1255,18 +1255,19 @@
  AS $$
    WITH x AS (
--    SELECT @extschema@.limit_runway_urgency(p_rank_class, p_until_date, p_used_fraction,
-+    SELECT string_to_array(p_object, '.') AS parts,
-+           @extschema@.limit_runway_urgency(p_rank_class, p_until_date, p_used_fraction,
-                                             interval '30 days') AS u
+     SELECT @extschema@.limit_runway_urgency(p_rank_class, p_until_date, p_used_fraction,
+-                                            interval '30 days') AS u
++                                            interval '30 days') AS u,
++           string_to_array(p_object, '.') AS parts
    )
    SELECT CASE WHEN x.u >= 6 THEN 'act' WHEN x.u >= 4 THEN 'schedule' ELSE 'plan' END AS tier,
           CASE p_kind
@@ -26,13 +25,9 @@
             WHEN 'xid' THEN
               CASE WHEN p_object LIKE 'database %' THEN 'VACUUM (FREEZE);'
                    ELSE format('VACUUM (FREEZE) %s;', p_object) END
-@@ -1252,11 +1253,10 @@
-            WHEN 'partition' THEN
-              -- FROM the last upper bound, TO the same plus the last partition's width, in the same
-              -- schema as the parent. Named for the new lower bound's date, since the finding does not
--             -- carry the last partition's name. The name is quoted once with the suffix inside the
--             -- quotes, so a mixed-case table gets "Events Tbl_20260301" and not "Events Tbl"_20260301.
-+             -- carry the last partition's name.
+@@ -1277,8 +1278,8 @@
+              -- carry the last partition's name. The name is quoted once with the suffix inside the
+              -- quotes, so a mixed-case table gets "Events Tbl_20260301" and not "Events Tbl"_20260301.
               format('CREATE TABLE %I.%I PARTITION OF %I.%I FOR VALUES FROM (%L) TO (%L);',
 -                    pi.parts[1], pi.parts[2] || '_' || to_char(p_until_date, 'YYYYMMDD'),
 -                    pi.parts[1], pi.parts[2],
@@ -41,36 +36,3 @@
                      p_until_date, p_until_date + (p_until_date - p_from_date))
             WHEN 'replication slot' THEN format('SELECT pg_drop_replication_slot(%L);', p_object)
             WHEN 'connections' THEN
-@@ -1266,28 +1266,21 @@
-          END AS command,
-          CASE p_kind
-            WHEN 'sequence' THEN
--             CASE WHEN coalesce(array_length(pi.parts, 1), 0) >= 3
-+             CASE WHEN coalesce(array_length(x.parts, 1), 0) >= 3
-                   THEN 'rewrites the whole table under ACCESS EXCLUSIVE; the only step that raises the column''s limit'
-                   ELSE 'raises the sequence''s own ceiling; if a column fills it, that column is the real limit and must widen too' END
-            WHEN 'foreign key' THEN 'rewrites the child table under ACCESS EXCLUSIVE; the parent key is already wide'
-            WHEN 'xid' THEN
-              CASE WHEN p_object LIKE 'database %'
--                  THEN 'every table in the database; the least destructive step that lowers the age, and it is not cheap. Run it outside a transaction block'
--                  ELSE 'freezes only rows past vacuum_freeze_min_age; it need not lower the age if the old rows are not yet eligible. Run it outside a transaction block' END
--           WHEN 'multixact' THEN 'as the xid case: every table in the database, outside a transaction block. The member-space limit is not established, so it has no command'
-+                  THEN 'every table in the database; the least destructive step that lowers the age, and it is not cheap'
-+                  ELSE 'freezes only rows past vacuum_freeze_min_age; it need not lower the age if the old rows are not yet eligible' END
-+           WHEN 'multixact' THEN 'as the xid case: every table in the database. The member-space limit is not established, so it has no command'
-            WHEN 'partition' THEN 'creates the next partition, its width the same as the last one''s; inserts for that range fail, or land in the DEFAULT, until it exists'
-            WHEN 'replication slot' THEN 'the consumer must be rebuilt from a fresh base backup; the slot is already invalidated or about to be'
-            WHEN 'connections' THEN 'frees idle client connections only; superusers are exempt from the limit, and busy sessions are left alone'
-            WHEN 'password' THEN 'a new expiry date, never a password; a role whose logins do not use a password is unaffected'
-          END AS note
-     FROM x
--    -- The names are recovered from the finding's object, which the finder already built with %I, and
--    -- quoted once more below. CASE keeps parse_ident() lazy: it runs only for the kinds that split the
--    -- object into names, so a slot name or a 'database xid' object is never handed to it.
--    LEFT JOIN LATERAL (
--      SELECT CASE WHEN p_kind IN ('sequence', 'foreign key', 'partition')
--                  THEN parse_ident(p_object) END AS parts
--    ) pi ON true
-    -- No statement where the finding does not carry what it needs: a partition with no lower bound has
-    -- no width, so it returns no row rather than a placeholder (docs/act.md, rule 1).
-    WHERE CASE p_kind
