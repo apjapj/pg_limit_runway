@@ -1,0 +1,35 @@
+
+the usual check: pg_roles.rolvaliduntil, which any role can read
+ rolname | valid_for
+ lr_scen_expired | -1 days
+ lr_scen_forever | infinity
+ lr_scen_none | NULL
+ lr_scen_soon | 3 days
+(4 rows)
+
+
+what actually happens: a password login as each role
+ lr_scen_expired: FATAL: password authentication failed for user "lr_scen_expired"
+ lr_scen_soon: WARNING: role password will expire soon
+ lr_scen_forever: logged in
+ lr_scen_none: logged in
+ lr_scen_expired, over the container's local socket (trust): logged in, over the local socket
+
+checks
+ PASS the expired role is refused over a password login
+ PASS the role expiring in 3 days still logs in
+ PASS infinity and no VALID UNTIL both log in
+ PASS the expired role still logs in where no password is asked for
+
+what pg_limit_runway says
+ [failing now] password role lr_scen_expired: the password of lr_scen_expired has expired. Then: logins that do not use a password are not affected: trust, peer and certificate logins still work.
+ [date] password role lr_scen_soon: the password of lr_scen_soon expires at <run-time timestamp>. Then: logins that do not use a password are not affected: trust, peer and certificate logins still work.
+ PASS finding for role lr_scen_expired: expired (class 1), then %do not use a password are not affected%
+ PASS finding for role lr_scen_soon: date (class 2), then %do not use a password are not affected%
+ PASS finding for role lr_scen_forever: none
+ PASS finding for role lr_scen_none: none
+
+expected finding
+ lr_scen_soon: password expires in 3 days, a fixed date with no rate. lr_scen_expired: expired, which
+ refuses PASSWORD logins only; a role that also connects by trust, peer or certificate keeps working, so
+ 'expired' does not mean 'locked out'. infinity and NULL never expire and are not findings.

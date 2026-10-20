@@ -1,0 +1,30 @@
+
+the usual check (pg_sequences against the data)
+ last_value | never_called | max_id | pct_used
+ | t | 5 | 500.0
+(1 row)
+
+
+what actually happens: the next insert
+ ERROR: duplicate key value violates unique constraint "s12_items_pkey"
+
+evidence: the state a tool reads, cheaply: max(id) through the primary key index, not a scan
+ -> Index Only Scan Backward using s12_items_pkey on s12_items
+ sequence_at | data_at | sequence_behind_data
+ 1 | 5 | t
+(1 row)
+
+
+checks
+ PASS the usual check reports more than 100% used
+ PASS the next default id collides with loaded data
+ PASS the sequence is behind the data
+ PASS max(id) is read through the primary key index, not a sequential scan
+
+what pg_limit_runway says
+ [failing now] sequence lr_scen.s12_items.id: the sequence is behind the data (sequence at 1, data at 5): the next default id, 2, is already taken, so the next insert fails. Fix, to run by hand: SELECT setval('lr_scen.s12_items_id_seq', 5).
+ PASS finding for lr_scen.s12_items.id: behind the data (class 1)
+
+expected finding
+ s12_items.id: the sequence is behind the data, so the next insert fails now. Not a projection and not a
+ percentage: a state, with the fix to run by hand: SELECT setval('s12_items_id_seq', max(id)) FROM ...

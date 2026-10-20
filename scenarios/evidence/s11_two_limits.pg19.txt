@@ -1,0 +1,21 @@
+
+what actually happens, now
+ an insert into s11_tickets: succeeds
+ an insert into s11_audit for now(): ERROR: no partition of relation "s11_audit" found for row
+ s11_tickets has 6 values left of 32767
+
+checks
+ PASS s11_tickets still accepts inserts
+ PASS s11_tickets has 6 values left after that insert
+ PASS s11_audit already refuses every insert for the present
+
+what pg_limit_runway says
+ [failing now] partition lr_scen.s11_audit: the last partition ended at 2026-02-01 00:00:00+00: inserts for the present fail now.
+ [no rate yet] sequence lr_scen.s11_tickets.id: 6 of 32767 values left (smallint, ascending).
+ PASS finding for lr_scen.s11_audit: reached (class 1)
+ PASS finding for lr_scen.s11_tickets.id: no rate yet (class 3)
+ PASS the view lists lr_scen.s11_audit before lr_scen.s11_tickets.id
+
+expected finding
+ First s11_audit: already reached, failing now. Then s11_tickets: 6 values left, no rate yet, so no
+ date. A limit that is failing now outranks one that is merely close, however close.

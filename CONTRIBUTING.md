@@ -136,7 +136,7 @@ reverse of the fix as `<id>.patch` with its `.meta` beside it; `defects/README.m
    and fails if the control version has no `vX.Y` tag. The last one is the bump-to-tag
    window: set `LINT_ALLOW_UNTAGGED_RELEASE=1` to run the lint there, and drop it once the
    tag is cut. It also fails if the README header does not mention the current version.
-5. `make lint`, `make prove` on every version the matrix declares (14 to 18), and the
+5. `make lint`, `make prove` on every version the matrix declares (14 to 19), and the
    scenario suite green on each.
 6. Tag it, one name at a time, never with `--tags`. A released tag is never edited,
    never amended and never moved.
@@ -183,7 +183,7 @@ it, and a reader's eye catches it before anything else.
 CI runs every PostgreSQL version the matrix declares: 14, 15, 16, 17 and 18, all of them,
 with no hole. Two kinds of sentence name versions, and they are not the same claim:
 
-- A document that states **current coverage** names the matrix range, `14 to 18`.
+- A document that states **current coverage** names the matrix range, `14 to 19`.
   `scripts/check-pg-matrix-claims.sh` checks these against the workflow.
 - A document that records a **past measurement** names the versions it was measured on,
   which may be fewer than the matrix: `measured on 14 and 18` stays as written. Nothing

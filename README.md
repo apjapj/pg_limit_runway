@@ -7,7 +7,7 @@
 
 Part of [pg_incident_watch](https://github.com/apjapj/pg_incident_watch). Pure SQL, `CREATE EXTENSION pg_limit_runway`, no
 restart, no `shared_preload_libraries`. Status: **0.5.1**, with history, projected
-dates, alerting and the statements to act on them, tested on PostgreSQL 14 to 18. Install and grants:
+dates, alerting and the statements to act on them, tested on PostgreSQL 14 to 19. Install and grants:
 [INSTALL.md](INSTALL.md). What changed in each release: [CHANGELOG.md](CHANGELOG.md). Changing it or
 releasing it: [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -128,7 +128,7 @@ yet". Useful the day it is installed, and it is where the type and catalog logic
 
 Built as `limit_runway_findings(min_used, date_window)` behind both, in the three finding states of
 [docs/ranking.md](docs/ranking.md). Tested by `test/01_limit_runway.sql` (pgTAP) and by every scenario,
-which asserts the extension's finding against its fixture, on 14 to 18. What building it changed:
+which asserts the extension's finding against its fixture, on 14 to 19. What building it changed:
 
 - The serial finding is a state first: **exhausted** (never a negative count or more than 100%),
   **behind the data** (with the `setval` to run by hand), **cycled into existing keys** (no `setval`
@@ -181,9 +181,9 @@ building it changed is in the changelog for each release.
 `pg_stat_activity` for connection counts needs `pg_read_all_stats`, and some control functions are
 superuser-only by default; list exactly which are needed and what is reported without them.
 
-`INSTALL.md` is written. The matrix runs **14 to 18** on every push, with the evidence for each
-version committed, and 19 is open: its image needs the `include` form and a separate apt major, as
-pg_lock_tree's workflow does it. This sentence states the range deliberately, so that
+`INSTALL.md` is written. The matrix runs **14 to 19** on every push, with the evidence for each
+version committed; 19 is the current pre-release (`19beta4`) and uses the `include` form and a
+separate apt major, as pg_lock_tree's workflow does it. This sentence states the range deliberately, so that
 `scripts/check-pg-matrix-claims.sh` has something to check and a later edit to the workflow cannot
 leave the documentation claiming a range nobody runs.
 

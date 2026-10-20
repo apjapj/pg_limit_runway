@@ -80,7 +80,7 @@ mixed-case parent gives `"Events Tbl_20260301"` and not `"Events Tbl"_20260301`.
   to the Makefile cannot be missing from CI: two were.
 - `CONTRIBUTING.md` records the convention the remaining "measured on 14 and 18" sentences follow: a
   past measurement names the versions it was measured on and is left as written, while a coverage
-  claim names the matrix range, 14 to 18. Its own test list also had a stale count, `test/04_command.sql`
+  claim names the matrix range, 14 to 19. Its own test list also had a stale count, `test/04_command.sql`
   as `plan(42)` against the `plan(43)` it now is.
 - `defects/` records the extension's real defects and `make defects` re-injects each one and requires
   the test that caught it to fail, so the 0.4.0 quoting bug cannot come back unnoticed: the record is
