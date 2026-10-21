@@ -110,6 +110,11 @@ projected date therefore carries an error band the tool cannot narrow, and the f
 child column's type. s4's parent was at [2147483648](../scenarios/evidence/s4_widened_parent_fk.pg18.txt) with the usual
 check under 0.001%, and the child could no longer reference it.
 
+**A composite foreign key is not read.** The finder joins one `conkey`/`confkey` pair and skips any
+constraint with more than one column, so a multi-column foreign key whose `int4` child column
+references a `bigint` parent produces no finding. That is a gap rather than a pass, and the README
+lists it under "What it does not watch"; nothing pretends the relationship was checked.
+
 **Transaction IDs** (s5). Sampled: `age(datfrozenxid)` per database and the current xid read with
 `pg_snapshot_xmax(pg_current_snapshot())`, which s5 showed assigns nothing, while `pg_current_xact_id()`
 assigns one: a sampler built on it consumes what it measures. Rate: xids per day. Distances reported:

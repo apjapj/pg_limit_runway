@@ -38,13 +38,33 @@ limit and reports when each will be reached, soonest first.
 | Limit | What "runs out" means | Where the evidence is |
 |---|---|---|
 | **`int4` / `int2` sequences and identity columns** | `nextval()` fails, or the value no longer fits the column | `pg_sequence`, the sequence's own `last_value`/`is_called`, `pg_attribute`, `pg_depend` (to tie a sequence to its column). A sequence is tied to a column by `ALTER SEQUENCE ... OWNED BY` and **not** by a column `DEFAULT`: without it there is no dependency, the column's limit is invisible, and the sequence is measured against its own `MAXVALUE`, which reports room the next insert does not have. See [docs/rate.md](docs/rate.md) |
-| **`int4` foreign keys pointing at widened keys** | The parent is `bigint`, the child column is still `int4`, and inserts fail once the parent passes 2^31 | `pg_constraint` (`conkey`, `confkey`) joined to both columns' types |
+| **`int4` foreign keys pointing at widened keys** (single-column) | The parent is `bigint`, the child column is still `int4`, and inserts fail once the parent passes 2^31 | `pg_constraint` (`conkey`, `confkey`) joined to both columns' types |
 | **Transaction ID wraparound** | The server refuses new XIDs | `age(datfrozenxid)`, `age(relfrozenxid)` per table |
 | **MultiXact wraparound** | The same, for MultiXact IDs, and also MultiXact member space | `mxid_age(datminmxid)`, database level. `relminmxid` is per table and is not read: the limit is the database's, so there is no per-table MultiXact finding |
 | **Time-range partitions** | Inserts beyond the last partition fail, or land in DEFAULT | `pg_partitioned_table`, `pg_inherits`, `pg_get_expr(relpartbound, ...)` |
 | **Replication slots near invalidation** | The slot is invalidated and its consumer must be rebuilt | `pg_replication_slots.wal_status`, `safe_wal_size`, `max_slot_wal_keep_size` |
 | **Connection headroom** | New connections are refused | `max_connections`, `superuser_reserved_connections`, `reserved_connections` (PG 16+), per-role `rolconnlimit`, per-database `datconnlimit`, `pg_stat_activity` |
 | **Role passwords about to expire** | Logins fail | `pg_roles.rolvaliduntil` |
+
+### What it does not watch
+
+Stated here so a gap is not mistaken for a pass. None of these produces a finding. Most produce
+nothing at all; the one exception is the MultiXact member-space figure, which produces a "not
+established" row that names what was hidden.
+
+- **Composite foreign keys.** The check reads one column pair; a constraint with more than one
+  column is skipped. A multi-column foreign key whose `int4` child column references a `bigint`
+  parent is therefore not reported. Single-column foreign keys are covered.
+- **Columns with no sequence** (application-generated keys). There is nothing cheap to sample, and
+  a `max(id)` without a leading index is a table scan. They are not listed as "not watched" yet.
+- **Non-time partition keys.** A partitioned table whose key is not a time range is skipped rather
+  than guessed at.
+- **Disk space.** Not readable from SQL without file access, so it is out of scope.
+- **Per-table MultiXact age.** `relminmxid` is not read; the limit is the database's, and the
+  member-space figure is "not established" without superuser or `EXECUTE` on `pg_ls_dir(text)`
+  (see [INSTALL.md](INSTALL.md)).
+- **A fan-out across databases.** Sequences and partitions are per database; install the extension
+  in each database you want covered.
 
 ### What a finding looks like
 
