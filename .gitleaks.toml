@@ -26,3 +26,9 @@ keywords = ["192.168.", "10.0.", "10.1.", "172.16.", "172.17.", "172.18.", "172.
 description = "PostgreSQL and Debian version strings, not host addresses"
 regexTarget = "line"
 regexes = ['''(?:\b\d+\.){3}\d+-\d+''']
+
+# Generated scenario evidence is excluded by fingerprint in .gitleaksignore, not here: the finder
+# prints "foreign key lr_scen.s4_orders.customer_id", and generic-api-key reads the name after "key"
+# as a value. s20's shorter name clears the entropy threshold, so its six evidence files are listed
+# there. Evidence must stay byte-identical to the scenario's output, so it cannot carry an inline
+# allow pragma.

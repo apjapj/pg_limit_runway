@@ -1,0 +1,46 @@
+--- a/pg_limit_runway--0.5.2.sql
++++ b/pg_limit_runway--0.5.2.sql
+@@ -555,18 +555,14 @@
+       FROM pg_constraint con
+       JOIN pg_class c ON c.oid = con.conrelid JOIN pg_namespace cn ON cn.oid = c.relnamespace
+       JOIN pg_class p ON p.oid = con.confrelid JOIN pg_namespace pn ON pn.oid = p.relnamespace
+-      -- One row per column pair. A composite foreign key is read pair by pair, so the int4 child
+-      -- column against a bigint parent column is found rather than skipped. conkey[1] alone missed
+-      -- every composite key in silence (0.5.2).
+-      JOIN LATERAL unnest(con.conkey, con.confkey) AS k(child_attnum, parent_attnum) ON true
+-      JOIN pg_attribute ca ON ca.attrelid = con.conrelid AND ca.attnum = k.child_attnum
+-      JOIN pg_attribute pa ON pa.attrelid = con.confrelid AND pa.attnum = k.parent_attnum
++      JOIN pg_attribute ca ON ca.attrelid = con.conrelid AND ca.attnum = con.conkey[1]
++      JOIN pg_attribute pa ON pa.attrelid = con.confrelid AND pa.attnum = con.confkey[1]
+       JOIN pg_depend d ON d.refobjid = p.oid AND d.refobjsubid = pa.attnum AND d.deptype IN ('a', 'i')
+                       AND d.classid = 'pg_class'::regclass
+       JOIN pg_class s ON s.oid = d.objid AND s.relkind = 'S'
+       JOIN pg_sequences ps ON ps.schemaname = (SELECT nspname FROM pg_namespace WHERE oid = s.relnamespace)
+                           AND ps.sequencename = s.relname
+-     WHERE con.contype = 'f'
++     WHERE con.contype = 'f' AND cardinality(con.conkey) = 1
+        AND ca.atttypid IN ('int2'::regtype, 'int4'::regtype)
+        AND pa.atttypid IN ('int4'::regtype, 'int8'::regtype) AND ca.atttypid <> pa.atttypid
+   LOOP
+@@ -926,18 +922,14 @@
+       FROM pg_constraint con
+       JOIN pg_class c ON c.oid = con.conrelid JOIN pg_namespace cn ON cn.oid = c.relnamespace
+       JOIN pg_class p ON p.oid = con.confrelid
+-      -- One row per column pair. A composite foreign key is read pair by pair, so the int4 child
+-      -- column against a bigint parent column is found rather than skipped. conkey[1] alone missed
+-      -- every composite key in silence (0.5.2).
+-      JOIN LATERAL unnest(con.conkey, con.confkey) AS k(child_attnum, parent_attnum) ON true
+-      JOIN pg_attribute ca ON ca.attrelid = con.conrelid AND ca.attnum = k.child_attnum
+-      JOIN pg_attribute pa ON pa.attrelid = con.confrelid AND pa.attnum = k.parent_attnum
++      JOIN pg_attribute ca ON ca.attrelid = con.conrelid AND ca.attnum = con.conkey[1]
++      JOIN pg_attribute pa ON pa.attrelid = con.confrelid AND pa.attnum = con.confkey[1]
+       JOIN pg_depend d ON d.refobjid = p.oid AND d.refobjsubid = pa.attnum AND d.deptype IN ('a', 'i')
+                       AND d.classid = 'pg_class'::regclass
+       JOIN pg_class s ON s.oid = d.objid AND s.relkind = 'S'
+       JOIN pg_sequences ps ON ps.schemaname = (SELECT nspname FROM pg_namespace WHERE oid = s.relnamespace)
+                           AND ps.sequencename = s.relname
+-     WHERE con.contype = 'f'
++     WHERE con.contype = 'f' AND cardinality(con.conkey) = 1
+        AND ca.atttypid IN ('int2'::regtype, 'int4'::regtype)
+        AND pa.atttypid IN ('int4'::regtype, 'int8'::regtype) AND ca.atttypid <> pa.atttypid
+   LOOP
