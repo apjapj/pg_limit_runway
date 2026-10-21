@@ -1,3 +1,14 @@
+## 0.7.0 (2026-10-21)
+
+`limit_runway_rate(kind, object)` exposes the projection's two slopes: samples, epoch, segment start,
+newest observation, the 7-day and 24-hour rates, `rate_source` (`none`, `7-day`, `24-hour`, `both`,
+`disagree` or `flat`), the factor-of-two `disagree` flag, both projected dates and the date the
+finding uses. It makes the 7-day versus 24-hour disagreement visible without changing
+`limit_runway_findings()`'s row type.
+
+Additive: one function and its `COMMENT`, with a 0.6.0 -> 0.7.0 path. No new history, sample or
+configuration.
+
 ## 0.6.0 (2026-10-21)
 
 Keys with no sequence are listed instead of skipped. `limit_runway_unwatched()` reports every
