@@ -1,5 +1,5 @@
---- a/pg_limit_runway--0.5.2.sql
-+++ b/pg_limit_runway--0.5.2.sql
+--- a/pg_limit_runway--0.7.0.sql
++++ b/pg_limit_runway--0.7.0.sql
 @@ -555,18 +555,14 @@
        FROM pg_constraint con
        JOIN pg_class c ON c.oid = con.conrelid JOIN pg_namespace cn ON cn.oid = c.relnamespace

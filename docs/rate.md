@@ -149,3 +149,19 @@ reported as retained WAL growing, not as a date.
   window once there is history; 0.1 has none, so it reports the current count, labelled "current, not a
   peak". Counting needs `pg_read_all_stats`; without it a role's counts would read low, so they are "not
   established" instead (INSTALL.md).
+
+## Reading the two slopes directly
+
+`limit_runway_findings()` carries one date and one sentence. When the 7-day and 24-hour slopes differ
+by more than a factor of two, the finding says both dates. To see the raw pair, use:
+
+```sql
+SELECT * FROM limit_runway_rate('sequence', 'public.orders_id_seq');
+```
+
+It returns `samples`, `epoch`, `segment_start`, the newest observation, `rate_7d`, `rate_24h`,
+`rate_source` (`none`, `7-day`, `24-hour`, `both`, `disagree` or `flat`), the `disagree` flag and
+both projected dates. `until_date` is the date the finding would rank: the sooner of the two when
+they disagree, otherwise the available slope. No row means the series has never been sampled. This is
+a new function rather than extra columns on `limit_runway_findings()`, because a function's row type
+cannot be extended without dropping and recreating it.

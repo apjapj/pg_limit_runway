@@ -19,7 +19,7 @@ CREATE EXTENSION IF NOT EXISTS pgtap;
 DROP EXTENSION IF EXISTS pg_limit_runway;
 CREATE EXTENSION pg_limit_runway VERSION '0.3.0';
 \o
-SELECT plan(13);
+SELECT plan(14);
 
 -- ---------------------------------------------------------------- before the update
 SELECT hasnt_function('limit_runway_command', ARRAY['numeric'],
@@ -41,12 +41,14 @@ GRANT EXECUTE ON FUNCTION limit_runway_findings(numeric, interval) TO lr_up;
 ALTER EXTENSION pg_limit_runway UPDATE;
 
 -- ---------------------------------------------------------------- after the update
-SELECT is((SELECT extversion FROM pg_extension WHERE extname = 'pg_limit_runway'), '0.6.0',
+SELECT is((SELECT extversion FROM pg_extension WHERE extname = 'pg_limit_runway'), '0.7.0',
           'ALTER EXTENSION UPDATE reaches the version the control file declares');
 SELECT ok(has_function_privilege('lr_up', 'limit_runway_findings(numeric,interval)', 'EXECUTE'),
           'the 0.5.2 -> 0.6.0 additive update kept a grant taken before it');
 SELECT has_function('limit_runway_unwatched', ARRAY[]::text[],
                     'the unwatched-key function exists after the update');
+SELECT has_function('limit_runway_rate', ARRAY['text', 'text'],
+                    'the rate reader exists after the update');
 SELECT ok(NOT has_function_privilege('public', 'limit_runway_unwatched()', 'EXECUTE'),
           'and it is closed to PUBLIC like the other readers');
 SELECT has_column('limit_runway', 'from_date',

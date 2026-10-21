@@ -6,7 +6,7 @@
 **What will break next.** Every hard limit in the database, and the date each one is reached.
 
 Part of [pg_incident_watch](https://github.com/apjapj/pg_incident_watch). Pure SQL, `CREATE EXTENSION pg_limit_runway`, no
-restart, no `shared_preload_libraries`. Status: **0.6.0**, with history, projected
+restart, no `shared_preload_libraries`. Status: **0.7.0**, with history, projected
 dates, alerting and the statements to act on them, tested on PostgreSQL 14 to 19, where 19 is the
 current pre-release (`19beta4`). Install and grants:
 [INSTALL.md](INSTALL.md). What changed in each release: [CHANGELOG.md](CHANGELOG.md). Changing it or
