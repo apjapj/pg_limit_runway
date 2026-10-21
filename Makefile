@@ -9,6 +9,12 @@ TESTDB ?= postgres
 PG ?= 18
 prove:
 	pg_prove --dbname $(TESTDB) test/*.sql
+
+# The read-side overhead benchmark: one call to limit_runway_text() and limit_runway_findings(),
+# beside a hand-written pg_sequences query, median of N calls over a stated fixture. It creates and
+# drops its own sequences and needs superuser, so it passes --force itself.
+bench-overhead:
+	./scripts/bench-overhead.sh --force $(if $(SEQUENCES),--sequences=$(SEQUENCES),) $(if $(N),--repeat=$(N),) $(if $(KEEP),--keep,)
 defects:
 	# Re-inject every recorded defect (defects/) and require the test that caught it to fail
 	# again; a defect the suite no longer catches is a regression and exits non-zero.
@@ -21,4 +27,4 @@ lint:
 	# Every database-free check, in one script. Not the recipe: the Makefile needs pgxs.mk to parse,
 	# and scripts/lint.sh needs no PostgreSQL toolchain. Both CI copies call the script directly.
 	./scripts/lint.sh
-.PHONY: install prove defects check-examples lint
+.PHONY: install prove defects check-examples lint bench-overhead
