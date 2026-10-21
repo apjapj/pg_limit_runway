@@ -1,0 +1,32 @@
+
+the usual check (pg_sequences, on the parent's first column)
+ sequencename | data_type | last_value | pct_used
+ s20_p_a_seq | bigint | 2147483648 | 0.000000
+(1 row)
+
+
+what actually happens: a child row for that parent
+ ERROR: integer out of range
+
+evidence: the composite key's column pairs and their types
+ conname | ord | child_col | child_type | parent_col | parent_type
+ s20_c_a_b_fkey | 1 | a | integer | a | bigint
+ s20_c_a_b_fkey | 2 | b | integer | b | integer
+(2 rows)
+
+
+checks
+ PASS the parent's sequence is under 0.001% used
+ PASS a child row for the newest parent fails with integer out of range
+
+what pg_limit_runway says
+ [failing now] foreign key lr_scen.s20_c.a: lr_scen.s20_c.a (integer) can no longer reference new rows of lr_scen.s20_p: the parent key is at 2147483648, past 2147483647. Then: the limit is reached through the parent: lr_scen.s20_p.a is bigint.
+ PASS finding for lr_scen.s20_c.a: exhausted (class 1), then %s20_p.a is bigint%
+
+the command the Act stage builds (limit_runway_command)
+ ALTER TABLE lr_scen.s20_c ALTER COLUMN a TYPE bigint;
+ PASS after the command, the same child row is accepted
+
+expected finding
+ s20_c.a (int4) is one column of a composite foreign key whose parent column s20_p.a is bigint.
+ The sequence's own percentage says there is room; the child column has none.

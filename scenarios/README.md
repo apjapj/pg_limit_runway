@@ -42,14 +42,15 @@ images, started with `postgres -c autovacuum_naptime=10s -c log_autovacuum_min_d
 | `s17_rates_disagree` | 0.2: [16.43](evidence/s17_rates_disagree.pg18.txt) a day over the week, 100 over the last half day: both rates and both dates, ranked by the sooner | **yes**: it caught the 7-day window losing its anchor to the last tick's lateness, now 10% wide |
 | `s18_sampler_rights` | 0.2: no grant on the history, the sampler refuses and names it; a sequence it cannot read is counted as not established and recorded as nothing | the caller's rights, as Piotr decided |
 | `s19_sampler_cost` | 0.2: one sample over 10,000 sequences records the [100](evidence/s19_sampler_cost.pg18.txt) past 10% and consumes exactly one xid | the budget docs/history.md asked to be measured first |
+| `s20_composite_fk` | a composite foreign key's `int4` child column against a `bigint` parent: the usual check says [0.000000](evidence/s20_composite_fk.pg18.txt)% used, the insert fails with "integer out of range", and 0.5.2 names the pair; the command then makes the insert succeed | **yes**, found by review: 0.5.1 read `conkey[1]`/`confkey[1]` only, so a composite pair was skipped in silence |
 
 **The evidence is identical across the versions except for two scenarios.** `s10_connection_headroom`
 differs from 16 on, where `reserved_connections` exists and 14 and 15 hold back
 `superuser_reserved_connections` alone (14 and 15 agree, and 16, 17 and 18 agree);
 `s12_sequence_behind_data` differs from 17, where the behind-the-data lookup shows an `Index Cond`
 (14, 15 and 16 agree, and 17 and 18 agree). Every other scenario's files are byte-identical across
-all five versions, and there are 95 committed files in all: one for each scenario on each of 14, 15,
-16, 17 and 18.
+all six versions, and there are 120 committed files in all: one for each scenario on each of 14,
+15, 16, 17, 18 and 19.
 **Reproducible**: two consecutive runs on each version gave byte-identical evidence with no masking at
 all, because the scenarios print facts and booleans rather than ids,
 pids or timestamps. The extension's findings added one: s9's password expiry is set from `now()`, so
