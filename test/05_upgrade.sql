@@ -15,11 +15,11 @@ CREATE EXTENSION IF NOT EXISTS pgtap;
 -- Create an old version rather than the released one, so this exercises the update path itself.
 -- Drop first: a server may already carry the extension, and the CI scenario jobs install it before
 -- pg_prove, so CREATE EXTENSION ... VERSION would otherwise refuse it as already existing. The drop
--- is inside the transaction and is rolled back with it, so a pre-installed 0.5.2 comes back.
+-- is inside the transaction and is rolled back with it, so a pre-installed 0.6.0 comes back.
 DROP EXTENSION IF EXISTS pg_limit_runway;
 CREATE EXTENSION pg_limit_runway VERSION '0.3.0';
 \o
-SELECT plan(11);
+SELECT plan(13);
 
 -- ---------------------------------------------------------------- before the update
 SELECT hasnt_function('limit_runway_command', ARRAY['numeric'],
@@ -32,19 +32,23 @@ GRANT SELECT ON limit_runway TO lr_up;
 GRANT EXECUTE ON FUNCTION limit_runway_text(numeric, interval) TO lr_up;
 \o
 
--- Stop at 0.5.1 so the patch step can be exercised on its own: 0.5.2 replaces two bodies with
--- CREATE OR REPLACE, and a grant taken just before it must still be there afterwards.
-ALTER EXTENSION pg_limit_runway UPDATE TO '0.5.1';
+-- Stop at 0.5.2 so the additive 0.6.0 step is exercised on its own: a grant taken just before it
+-- must still be there afterwards.
+ALTER EXTENSION pg_limit_runway UPDATE TO '0.5.2';
 \o /dev/null
 GRANT EXECUTE ON FUNCTION limit_runway_findings(numeric, interval) TO lr_up;
 \o
 ALTER EXTENSION pg_limit_runway UPDATE;
 
 -- ---------------------------------------------------------------- after the update
-SELECT is((SELECT extversion FROM pg_extension WHERE extname = 'pg_limit_runway'), '0.5.2',
+SELECT is((SELECT extversion FROM pg_extension WHERE extname = 'pg_limit_runway'), '0.6.0',
           'ALTER EXTENSION UPDATE reaches the version the control file declares');
 SELECT ok(has_function_privilege('lr_up', 'limit_runway_findings(numeric,interval)', 'EXECUTE'),
-          'the 0.5.1 -> 0.5.2 CREATE OR REPLACE kept a grant taken before it');
+          'the 0.5.2 -> 0.6.0 additive update kept a grant taken before it');
+SELECT has_function('limit_runway_unwatched', ARRAY[]::text[],
+                    'the unwatched-key function exists after the update');
+SELECT ok(NOT has_function_privilege('public', 'limit_runway_unwatched()', 'EXECUTE'),
+          'and it is closed to PUBLIC like the other readers');
 SELECT has_column('limit_runway', 'from_date',
                   'the recreated view carries the new from_date column the Act stage needs');
 SELECT has_function('limit_runway_command', ARRAY['numeric'],

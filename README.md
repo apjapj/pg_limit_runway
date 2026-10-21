@@ -6,7 +6,7 @@
 **What will break next.** Every hard limit in the database, and the date each one is reached.
 
 Part of [pg_incident_watch](https://github.com/apjapj/pg_incident_watch). Pure SQL, `CREATE EXTENSION pg_limit_runway`, no
-restart, no `shared_preload_libraries`. Status: **0.5.2**, with history, projected
+restart, no `shared_preload_libraries`. Status: **0.6.0**, with history, projected
 dates, alerting and the statements to act on them, tested on PostgreSQL 14 to 19, where 19 is the
 current pre-release (`19beta4`). Install and grants:
 [INSTALL.md](INSTALL.md). What changed in each release: [CHANGELOG.md](CHANGELOG.md). Changing it or
@@ -53,7 +53,8 @@ nothing at all; the one exception is the MultiXact member-space figure, which pr
 established" row that names what was hidden.
 
 - **Columns with no sequence** (application-generated keys). There is nothing cheap to sample, and
-  a `max(id)` without a leading index is a table scan. They are not listed as "not watched" yet.
+  a `max(id)` without a leading index is a table scan. They are listed by
+  `limit_runway_unwatched()`, with the key kind and the reason, rather than silently skipped.
 - **Non-time partition keys.** A partitioned table whose key is not a time range is skipped rather
   than guessed at.
 - **Disk space.** Not readable from SQL without file access, so it is out of scope.
@@ -177,8 +178,8 @@ scenarios, s15 to s19, and `test/02_history.sql`. What building it changed:
   half day; the disagreement test caught it.
 - A foreign key whose parent sequence the role cannot read was counted as 0 in 0.1, which is "fine". It
   is now listed as not established, like any other sequence the role cannot read.
-- Columns with no sequence are still not listed as "not watched", which the paragraph below asks for. It
-  is a later item.
+- Columns with no sequence are listed by `limit_runway_unwatched()`; they are not findings, because a
+  not-watched key has no current value and no limit.
 
 `limit_runway_sample()`, a history table, and the projection. Keep the sample cheap: it must not
 `SELECT max(id)` on large tables, which is why columns without a sequence (application-generated
