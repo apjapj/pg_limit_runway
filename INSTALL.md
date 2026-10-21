@@ -56,6 +56,11 @@ From 0.5.1: `ALTER EXTENSION pg_limit_runway UPDATE TO '0.5.2';`. It reads compo
 keys, one column pair at a time, so a multi-column key's `int4` child column against a `bigint`
 parent is reported rather than skipped. Two `CREATE OR REPLACE` bodies; no grant is affected.
 
+From 0.5.2: `ALTER EXTENSION pg_limit_runway UPDATE TO '0.6.0';`. It adds
+`limit_runway_unwatched()`, which names the integer primary-key and unique-index columns with no
+sequence, instead of skipping them. One `CREATE FUNCTION`; no existing object or grant changes. The
+function is closed to `PUBLIC`; grant `EXECUTE` to the role that should see the list.
+
 ## Sampling, for dates (0.2)
 
 A projected date needs samples. Schedule the sampler hourly, as a role with the grants in the next

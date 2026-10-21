@@ -139,8 +139,9 @@ limits, 35 days is a few hundred thousand narrow rows, and an index on `sampled_
 ## What it does not do
 
 - It does not watch columns with no sequence (application-generated keys): there is nothing cheap to
-  sample, and `max(id)` without a leading index is a scan. Listing them as "not watched", as the README
-  asks, rather than skipping them silently, is not in 0.2: a later item.
+  sample, and `max(id)` without a leading index is a scan. They are named by
+  `limit_runway_unwatched()` instead of being skipped silently; a not-watched key has no current value
+  and no limit, so it is not a finding.
 - It does not alert. Alerting on a window ("within 30 days", then halving) is step 6, under the shared
   contract, and reads the same projection.
 - It does not fan out across databases: sequences and partitions are per database (README, open

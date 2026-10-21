@@ -1,3 +1,16 @@
+## 0.6.0 (2026-10-21)
+
+Keys with no sequence are listed instead of skipped. `limit_runway_unwatched()` reports every
+integer primary-key and unique-index column that has neither an owned sequence nor a `nextval()`
+default, with its table, column, key kind and the reason. Before this, such a column was invisible:
+a reader could not tell an application-generated key from a column with nothing to watch.
+
+Catalog only: no table is scanned, and there is no new sample or history row. Serial, identity,
+`OWNED BY` and `DEFAULT nextval()` columns are excluded because `limit_runway_sequences()` already
+watches their sequence; included columns of a covering unique index are not key columns and are not
+listed. The function is closed like the other readers and is additive, so the update path is one
+`CREATE FUNCTION` and no existing object changes.
+
 ## 0.5.2 (2026-10-21)
 
 Composite foreign keys are read. A multi-column constraint whose `int4` child column references a
