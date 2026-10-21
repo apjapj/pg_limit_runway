@@ -52,6 +52,10 @@ From 0.5.0: `ALTER EXTENSION pg_limit_runway UPDATE TO '0.5.1';`. It makes
 sequence, so a sequence the caller cannot reach, such as `cron.jobid_seq`, is reported unreadable
 instead of raising. One `CREATE OR REPLACE`; no grant is affected.
 
+From 0.5.1: `ALTER EXTENSION pg_limit_runway UPDATE TO '0.5.2';`. It reads composite foreign
+keys, one column pair at a time, so a multi-column key's `int4` child column against a `bigint`
+parent is reported rather than skipped. Two `CREATE OR REPLACE` bodies; no grant is affected.
+
 ## Sampling, for dates (0.2)
 
 A projected date needs samples. Schedule the sampler hourly, as a role with the grants in the next

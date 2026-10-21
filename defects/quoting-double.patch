@@ -1,5 +1,5 @@
---- a/pg_limit_runway--0.5.1.sql
-+++ b/pg_limit_runway--0.5.1.sql
+--- a/pg_limit_runway--0.5.2.sql
++++ b/pg_limit_runway--0.5.2.sql
 @@ -1255,18 +1255,19 @@
  AS $$
    WITH x AS (

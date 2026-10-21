@@ -6,7 +6,7 @@
 **What will break next.** Every hard limit in the database, and the date each one is reached.
 
 Part of [pg_incident_watch](https://github.com/apjapj/pg_incident_watch). Pure SQL, `CREATE EXTENSION pg_limit_runway`, no
-restart, no `shared_preload_libraries`. Status: **0.5.1**, with history, projected
+restart, no `shared_preload_libraries`. Status: **0.5.2**, with history, projected
 dates, alerting and the statements to act on them, tested on PostgreSQL 14 to 19, where 19 is the
 current pre-release (`19beta4`). Install and grants:
 [INSTALL.md](INSTALL.md). What changed in each release: [CHANGELOG.md](CHANGELOG.md). Changing it or
@@ -38,13 +38,30 @@ limit and reports when each will be reached, soonest first.
 | Limit | What "runs out" means | Where the evidence is |
 |---|---|---|
 | **`int4` / `int2` sequences and identity columns** | `nextval()` fails, or the value no longer fits the column | `pg_sequence`, the sequence's own `last_value`/`is_called`, `pg_attribute`, `pg_depend` (to tie a sequence to its column). A sequence is tied to a column by `ALTER SEQUENCE ... OWNED BY` and **not** by a column `DEFAULT`: without it there is no dependency, the column's limit is invisible, and the sequence is measured against its own `MAXVALUE`, which reports room the next insert does not have. See [docs/rate.md](docs/rate.md) |
-| **`int4` foreign keys pointing at widened keys** | The parent is `bigint`, the child column is still `int4`, and inserts fail once the parent passes 2^31 | `pg_constraint` (`conkey`, `confkey`) joined to both columns' types |
+| **`int4` foreign keys pointing at widened keys** | The parent is `bigint`, the child column is still `int4`, and inserts fail once the parent passes 2^31 | `pg_constraint` (`conkey`, `confkey`) joined to both columns' types. A composite key is read pair by pair, so only a pair whose child column is `int4` and parent column `bigint` is a finding |
 | **Transaction ID wraparound** | The server refuses new XIDs | `age(datfrozenxid)`, `age(relfrozenxid)` per table |
 | **MultiXact wraparound** | The same, for MultiXact IDs, and also MultiXact member space | `mxid_age(datminmxid)`, database level. `relminmxid` is per table and is not read: the limit is the database's, so there is no per-table MultiXact finding |
 | **Time-range partitions** | Inserts beyond the last partition fail, or land in DEFAULT | `pg_partitioned_table`, `pg_inherits`, `pg_get_expr(relpartbound, ...)` |
 | **Replication slots near invalidation** | The slot is invalidated and its consumer must be rebuilt | `pg_replication_slots.wal_status`, `safe_wal_size`, `max_slot_wal_keep_size` |
 | **Connection headroom** | New connections are refused | `max_connections`, `superuser_reserved_connections`, `reserved_connections` (PG 16+), per-role `rolconnlimit`, per-database `datconnlimit`, `pg_stat_activity` |
 | **Role passwords about to expire** | Logins fail | `pg_roles.rolvaliduntil` |
+
+### What it does not watch
+
+Stated here so a gap is not mistaken for a pass. None of these produces a finding. Most produce
+nothing at all; the one exception is the MultiXact member-space figure, which produces a "not
+established" row that names what was hidden.
+
+- **Columns with no sequence** (application-generated keys). There is nothing cheap to sample, and
+  a `max(id)` without a leading index is a table scan. They are not listed as "not watched" yet.
+- **Non-time partition keys.** A partitioned table whose key is not a time range is skipped rather
+  than guessed at.
+- **Disk space.** Not readable from SQL without file access, so it is out of scope.
+- **Per-table MultiXact age.** `relminmxid` is not read; the limit is the database's, and the
+  member-space figure is "not established" without superuser or `EXECUTE` on `pg_ls_dir(text)`
+  (see [INSTALL.md](INSTALL.md)).
+- **A fan-out across databases.** Sequences and partitions are per database; install the extension
+  in each database you want covered.
 
 ### What a finding looks like
 
@@ -119,7 +136,8 @@ expect (failed inserts consume sequence values, a forced vacuum need not lower t
 locker set, a DEFAULT partition blocks the fix, expired passwords still allow non-password logins,
 superusers bypass connection limits). Two more came later: s12, a sequence behind its data (found by
 Piotr), and s13, a descending cycling sequence and a descending one stepping by 3 (from Piotr's review
-of 0.1), thirteen in all. How rate is measured and how limits are ordered are now decided in
+of 0.1), thirteen in all. s20, a composite foreign key, was added in 0.5.2 after a review found the
+case was skipped. How rate is measured and how limits are ordered are now decided in
 [docs/rate.md](docs/rate.md) and [docs/ranking.md](docs/ranking.md), before any SQL.
 
 ### 4. ~~The first version: current state only~~ **Done: 0.1, [INSTALL.md](INSTALL.md)**

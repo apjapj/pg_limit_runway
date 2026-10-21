@@ -1,3 +1,24 @@
+## 0.5.2 (2026-10-21)
+
+Composite foreign keys are read. A multi-column constraint whose `int4` child column references a
+`bigint` parent column produced no finding, and no note saying it had been skipped.
+
+`limit_runway_findings()` and `limit_runway_sample()` joined `conkey[1]` to `confkey[1]` and filtered
+`cardinality(conkey) = 1`, so every composite key was invisible. Both now unnest `conkey` with
+`confkey` and examine each pair: an `int4` child column against a `bigint` parent is a finding, and
+an `int4`-to-`int4` pair in the same key is not. A composite key with two qualifying pairs yields
+two findings, one per child column, because each column has its own limit.
+
+No signature or returned-column change, so both functions are replaced with `CREATE OR REPLACE` and
+existing grants survive. The sampler is changed with the finder, so a composite pair is recorded in
+the history as well as reported live, and a series starts from the first sample after the update.
+
+`scenarios/s20_composite_fk.sh` builds the shape: the parent sequence is under 0.001% used, the
+child insert fails with `integer out of range`, and the Act stage's
+`ALTER TABLE ... ALTER COLUMN ... TYPE bigint` makes the same insert succeed. Against 0.5.1 the
+scenario fails twice (no finding, and the insert after an empty command), which is the check that it
+tests the change rather than the fixture. Evidence is committed for PostgreSQL 14 to 19.
+
 # changelog
 
 Versions are listed newest first. Released tags are never edited: a change that needs

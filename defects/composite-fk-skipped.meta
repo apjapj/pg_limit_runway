@@ -1,0 +1,10 @@
+id=composite-fk-skipped
+class=logic
+found=the 2026-10 read-only review, 2026-10-21
+fixed=0.5.2
+test=test/01_limit_runway.sql
+detail=limit_runway_findings() and limit_runway_sample() joined conkey[1] to confkey[1] and filtered
+       cardinality(conkey) = 1, so a composite foreign key was skipped in silence. An int4 child
+       column referencing a bigint parent column produced no finding, and nothing said the key had
+       not been read. test/01 builds a composite key whose first pair is int4 -> bigint; this patch
+       must make that assertion fail.

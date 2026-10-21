@@ -1,5 +1,5 @@
 # pg_limit_runway extension
 comment = 'What will break next: every hard limit the server can see, most urgent first'
-default_version = '0.5.1'
+default_version = '0.5.2'
 relocatable = false
 trusted = false
