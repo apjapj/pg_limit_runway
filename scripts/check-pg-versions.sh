@@ -23,7 +23,7 @@
 # for the versions it can see and not for the ones it cannot. Contiguity proves there is no hole
 # inside the range, not that the range starts at the supported floor: that is what
 # check-pg-matrix-claims.sh reads, from the range the documents state. And a prerelease such as
-# "19beta4" is folded to its major, 19, so it counts as the 19 line and would then require committed
+# "19rc1" is folded to its major, 19, so it counts as the 19 line and would then require committed
 # 19 evidence before this passes.
 set -eu
 
