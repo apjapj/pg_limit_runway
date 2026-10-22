@@ -140,6 +140,13 @@ jobs:
           bad=$(psql -X -tAc "SELECT count(*) FROM pg_hba_file_rules WHERE error IS NOT NULL")
           echo "pg_hba_file_rules with errors: ${bad}"
           [ "$bad" = 0 ] || { echo "pg_hba.conf did not parse" >&2; exit 1; }
+      - name: Uninstall check with ProbeKit v0.1.0
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch v0.1.0 \
+            http://forgejo.lan:3000/apjapj/ProbeKit.git /tmp/probekit
+          make -C /tmp/probekit install
+          make check-uninstall
       - name: pgTAP
         run: pg_prove --dbname postgres test/*.sql
       - name: Scenarios
