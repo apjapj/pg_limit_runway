@@ -34,4 +34,7 @@ lint:
 	# Every database-free check, in one script. Not the recipe: the Makefile needs pgxs.mk to parse,
 	# and scripts/lint.sh needs no PostgreSQL toolchain. Both CI copies call the script directly.
 	./scripts/lint.sh
-.PHONY: install prove defects check-examples lint bench-overhead pgxn-check pgxn-package
+check-uninstall:
+	./scripts/check-uninstall.sh
+
+.PHONY: install prove defects check-examples lint bench-overhead pgxn-check pgxn-package check-uninstall
