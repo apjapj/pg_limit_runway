@@ -8,7 +8,7 @@
 Part of [pg_incident_watch](https://github.com/apjapj/pg_incident_watch). Pure SQL, `CREATE EXTENSION pg_limit_runway`, no
 restart, no `shared_preload_libraries`. Status: **0.7.0**, with history, projected
 dates, alerting and the statements to act on them, tested on PostgreSQL 14 to 19, where 19 is the
-current pre-release (`19beta4`). Install and grants:
+current pre-release (`19rc1`). Install and grants:
 [INSTALL.md](INSTALL.md). What changed in each release: [CHANGELOG.md](CHANGELOG.md). Changing it or
 releasing it: [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -202,7 +202,7 @@ building it changed is in the changelog for each release.
 superuser-only by default; list exactly which are needed and what is reported without them.
 
 `INSTALL.md` is written. The matrix runs **14 to 19** on every push, with the evidence for each
-version committed; 19 is the current pre-release (`19beta4`) and uses the `include` form and a
+version committed; 19 is the current pre-release (`19rc1`) and uses the `include` form and a
 separate apt major, as pg_lock_tree's workflow does it. This sentence states the range deliberately, so that
 `scripts/check-pg-matrix-claims.sh` has something to check and a later edit to the workflow cannot
 leave the documentation claiming a range nobody runs.
