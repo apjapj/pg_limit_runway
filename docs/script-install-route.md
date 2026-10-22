@@ -102,13 +102,17 @@ For each major:
 - `uninstall.sql` is the only uninstall path. `DROP EXTENSION` is not available.
 - The script route must not be mixed with the extension route in one database.
 
-## Open questions before code
+## Decisions (2026-10-22)
 
-1. Does the route install into `public` only, or accept any schema? The design supports any schema,
-   but `@extschema@` inside string literals needs a generator test.
-2. Is `migrate.sql` cumulative from the oldest version only, or should one file accept a
-   `-v from_version=` and skip steps? The former is smaller; the latter is friendlier.
-3. Should the generated scripts be at the repository root or in `scripts/sql/`? Root is more
-   discoverable; `scripts/sql/` keeps shell and SQL apart.
-4. Do we accept the extra marker table as the route's identity, or store the version in a comment on
-   the view? A table is honest and survives; a comment is easier to lose.
+1. **Schema: fixed `public` for v0.** The script route installs into `public`, matching the extension
+   route and the first-five-minutes script. A configurable schema is later. Caveat: on PostgreSQL 15
+   and later the installing role needs `CREATE` on `public`, which some managed services restrict;
+   the install error must say so rather than failing obscurely.
+2. **`migrate.sql` is one self-contained file.** It reads the marker version and applies the needed
+   steps in order; the user does not choose a `from_version`. It refuses if the marker is missing or
+   the recorded version is newer than the target. Per-step files are generated too, for transparency.
+3. **Location: `scripts/sql/`, committed.** CI checks that the committed files equal the generator
+   output. They are also attached as assets to each GitHub release, so a user does not need to clone.
+4. **Marker table, not a comment.** `limit_runway_script_install` records version, installed_at,
+   route and previous_version. It survives dump and restore. It is the one deliberate inventory
+   difference from the extension route; the identical-inventory test lists it and nothing else.
