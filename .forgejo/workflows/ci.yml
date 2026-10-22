@@ -140,11 +140,16 @@ jobs:
           bad=$(psql -X -tAc "SELECT count(*) FROM pg_hba_file_rules WHERE error IS NOT NULL")
           echo "pg_hba_file_rules with errors: ${bad}"
           [ "$bad" = 0 ] || { echo "pg_hba.conf did not parse" >&2; exit 1; }
-      - name: Uninstall check with ProbeKit v0.1.0
+      - name: Uninstall check with the internal snapshot kit
+        # The URL is a Forgejo repository variable, never committed. GitHub does not run this
+        # workflow, and a Forgejo instance without the variable skips the check rather than
+        # inventing a location.
+        if: ${{ vars.PROBEKIT_URL != '' }}
+        env:
+          PROBEKIT_URL: ${{ vars.PROBEKIT_URL }}
         run: |
           set -euo pipefail
-          git clone --depth 1 --branch v0.1.0 \
-            http://forgejo.lan:3000/apjapj/ProbeKit.git /tmp/probekit
+          git clone --depth 1 --branch v0.1.0 "$PROBEKIT_URL" /tmp/probekit
           make -C /tmp/probekit install
           make check-uninstall
       - name: pgTAP
