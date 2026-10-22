@@ -128,4 +128,6 @@ done
     printf '%s\n' 'COMMIT;'
 } > "$out/migrate.sql"
 
+(cd "$out" && sha256sum install.sql uninstall.sql migrate.sql migrate-*.sql > SHA256SUMS)
+
 echo "generated $out/install.sql, uninstall.sql, migrate.sql and per-step files for $version"

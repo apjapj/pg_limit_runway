@@ -40,4 +40,7 @@ check-uninstall:
 check-script-route:
 	./scripts/check-script-route.sh
 
-.PHONY: install prove defects check-examples lint bench-overhead pgxn-check pgxn-package check-script-route check-uninstall
+check-script-route-inventory:
+	./scripts/check-script-route-inventory.sh
+
+.PHONY: install prove defects check-examples lint bench-overhead pgxn-check pgxn-package check-script-route check-script-route-inventory check-uninstall

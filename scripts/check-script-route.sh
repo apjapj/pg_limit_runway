@@ -9,6 +9,8 @@ db="lr_script_route_check_$$"
 cleanup() { dropdb --if-exists "$db" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
+(cd scripts/sql && sha256sum -c SHA256SUMS >/dev/null)
+
 createdb "$db"
 export PGDATABASE="$db"
 

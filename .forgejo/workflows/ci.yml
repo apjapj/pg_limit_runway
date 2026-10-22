@@ -152,6 +152,9 @@ jobs:
           git clone --depth 1 --branch v0.1.0 "$PROBEKIT_URL" /tmp/probekit
           make -C /tmp/probekit install
           make check-uninstall
+      - name: Script-route inventory equals the extension route
+        run: make check-script-route-inventory
+
       - name: pgTAP
         run: pg_prove --dbname postgres test/*.sql
       - name: Scenarios
