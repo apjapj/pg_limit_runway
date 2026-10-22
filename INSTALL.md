@@ -12,6 +12,14 @@
 
 ## Install
 
+## Alternative: the generated script route
+
+If `CREATE EXTENSION` is not available, install from [`scripts/sql/install.sql`](scripts/sql/install.sql)
+with `psql -f`; `scripts/sql/uninstall.sql` and `scripts/sql/migrate.sql` sit beside it. It installs into `public` and records
+its version in `limit_runway_script_install`. `CREATE EXTENSION` remains the default. Do not mix the
+two routes in one database. Full rules: [docs/script-install-route.md](docs/script-install-route.md).
+
+
 ```bash
 git clone https://github.com/apjapj/pg_limit_runway.git
 cd pg_limit_runway

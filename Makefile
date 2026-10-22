@@ -37,4 +37,7 @@ lint:
 check-uninstall:
 	./scripts/check-uninstall.sh
 
-.PHONY: install prove defects check-examples lint bench-overhead pgxn-check pgxn-package check-uninstall
+check-script-route:
+	./scripts/check-script-route.sh
+
+.PHONY: install prove defects check-examples lint bench-overhead pgxn-check pgxn-package check-script-route check-uninstall
