@@ -34,6 +34,24 @@ query="SELECT (o->>'class') || '|' || (o->>'identity')
 psql -X -At -d "$ext_db" -c "$query" > /tmp/lr_inv_ext.$$
 psql -X -At -d "$script_db" -c "$query" > /tmp/lr_inv_script.$$
 
+acl_query="SELECT 'function|' || p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')|' || coalesce(p.proacl::text, 'default')
+              FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+             WHERE n.nspname='public' AND p.proname LIKE 'limit_runway%'
+             UNION ALL
+            SELECT 'relation|' || c.relname || '|' || coalesce(c.relacl::text, 'default')
+              FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+             WHERE n.nspname='public' AND c.relname LIKE 'limit_runway%'
+               AND c.relname NOT LIKE 'limit_runway_script_install%'
+            ORDER BY 1"
+psql -X -At -d "$ext_db" -c "$acl_query" > /tmp/lr_acl_ext.$$
+psql -X -At -d "$script_db" -c "$acl_query" > /tmp/lr_acl_script.$$
+if ! diff -u /tmp/lr_acl_ext.$$ /tmp/lr_acl_script.$$; then
+    echo "FAIL: grants differ between CREATE EXTENSION and the script route" >&2
+    rm -f /tmp/lr_inv_ext.$$ /tmp/lr_inv_script.$$ /tmp/lr_acl_ext.$$ /tmp/lr_acl_script.$$
+    exit 1
+fi
+rm -f /tmp/lr_acl_ext.$$ /tmp/lr_acl_script.$$
+
 if ! diff -u /tmp/lr_inv_ext.$$ /tmp/lr_inv_script.$$; then
     echo "FAIL: inventory differs between CREATE EXTENSION and the script route" >&2
     rm -f /tmp/lr_inv_ext.$$ /tmp/lr_inv_script.$$
