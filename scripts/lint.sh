@@ -37,6 +37,9 @@ bash ./scripts/check-ci-parity.sh
 # private host or address: META.json is published and permanent.
 step "no internal addresses or private repositories"
 ./scripts/check-internal-refs.sh
+step "the generated script route is current"
+./scripts/generate-script-route.sh >/dev/null
+git diff --exit-code -- scripts/sql
 step "the PGXN metadata"
 ./scripts/pgxn-meta.py --check >/dev/null
 

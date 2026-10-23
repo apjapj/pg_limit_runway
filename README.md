@@ -12,6 +12,25 @@ current pre-release (`19rc1`). Install and grants:
 [INSTALL.md](INSTALL.md). What changed in each release: [CHANGELOG.md](CHANGELOG.md). Changing it or
 releasing it: [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Install
+
+`CREATE EXTENSION pg_limit_runway` is the default. If the extension files cannot be installed, or
+`CREATE EXTENSION` is not available, use the generated alternative route in
+[`scripts/sql/install.sql`](scripts/sql/install.sql); `scripts/sql/uninstall.sql` and `scripts/sql/migrate.sql` sit beside it.
+The route installs into `public`, records its version in `limit_runway_script_install`, and is
+documented in [docs/script-install-route.md](docs/script-install-route.md). It is not the default and
+must not be mixed with `CREATE EXTENSION` in one database.
+
+## Install
+
+`CREATE EXTENSION pg_limit_runway` is the default. If the extension files cannot be installed, or
+`CREATE EXTENSION` is not available, use the generated alternative route in
+[`scripts/sql/install.sql`](scripts/sql/install.sql); `scripts/sql/uninstall.sql` and
+`scripts/sql/migrate.sql` sit beside it. It installs into `public`, records its version in
+`limit_runway_script_install`, and is documented in
+[docs/script-install-route.md](docs/script-install-route.md). It is not the default, and the two
+routes must not be mixed in one database.
+
 ## The incident, end to end
 
 This tool answers one question; the family covers the rest, and the three install independently.
