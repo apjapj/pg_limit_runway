@@ -31,7 +31,7 @@ EXPECTED_FAILURES=(
     'schema "cron" does not exist|INSTALL.md offers pg_cron as one way to schedule the sampler; it is not required and is not installed here'
 )
 
-# The order rules live once, in pg-dev-infra, and are vendored here as scripts/order-rules.sh. This
+# The order rules live once, in internal-tooling, and are vendored here as scripts/order-rules.sh. This
 # file judges the plan and only warns; scenarios/lib.sh judges the rows and fails.
 . scripts/order-rules.sh
 
@@ -124,7 +124,7 @@ while IFS=$'\t' read -r file line idx stmt; do
     if [ -z "$err" ]; then
         checked=$((checked + 1))
         # It plans. The rule is judged from the plan (order_explain_verdict, vendored from
-        # pg-dev-infra); here it only warns, because EXPLAIN shows the plan and not the rows.
+        # internal-tooling); here it only warns, because EXPLAIN shows the plan and not the rows.
         v=$(order_explain_verdict "$stmt")
         if [ -n "$v" ]; then
             case "$v" in

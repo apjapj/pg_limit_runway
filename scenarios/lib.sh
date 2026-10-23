@@ -18,7 +18,7 @@ SCHEMA=lr_scen
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 RUNDIR="$HERE/.run/${PGHOST}_${PGPORT:-5432}"
 mkdir -p "$RUNDIR"
-# The order rules live once, in pg-dev-infra, vendored as scripts/order-rules.sh. val() uses the exact
+# The order rules live once, in internal-tooling, vendored as scripts/order-rules.sh. val() uses the exact
 # rule, where the row count is known; check-examples.sh uses the plan rule.
 . "$HERE/../scripts/order-rules.sh"
 
