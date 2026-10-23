@@ -25,7 +25,7 @@ for r in expired soon forever none; do
     note "lr_scen_$r: $e"
 done
 ex=$(PGUSER=lr_scen_expired PGPASSWORD=test psql -X -At -c "SELECT 1" 2>&1 | head -1)
-# $PGPORT, not a literal 5432: on a host running the pg-dev-infra compose stack there IS a socket at
+# $PGPORT, not a literal 5432: on a host running the internal-tooling compose stack there IS a socket at
 # the same path for port 5432, belonging to a different server. Checking the bare path would let this
 # silently test the wrong server and report a pass for a question it never asked.
 sock_tested=0
